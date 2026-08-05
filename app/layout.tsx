@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LifeOS Joaquín",
+  title: "LifeOS",
   description: "Tu segundo cerebro para organizar, registrar y evolucionar.",
   manifest: "/manifest.webmanifest",
   other: {

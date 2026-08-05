@@ -350,7 +350,7 @@ export default function HomePage() {
           <div className="top-actions">
             <button className="sync-state cloud-sync-button" onClick={cloudUser ? pushCloud : loginWithGoogle}>{cloudUser ? <Globe2 size={14} /> : <HardDrive size={14} />}{cloudUser ? cloudStatus : "Local · conectar Google"}</button>
             <button className="primary-button" onClick={() => setModal({ kind: "quick" })}><Plus size={18} /> Registrar</button>
-            <div className="avatar avatar-top">JB</div>
+            <div className="avatar avatar-top">YO</div>
           </div>
         </header>
 

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "LifeOS Joaquín",
+    name: "LifeOS",
     short_name: "LifeOS",
     description: "Tu segundo cerebro para organizar, registrar y evolucionar.",
     start_url: "/",
