@@ -12,15 +12,18 @@ import {
   CheckCircle2,
   Circle,
   Download,
+  Dumbbell,
   Edit3,
   Flame,
   FolderKanban,
+  Footprints,
   Globe2,
   Gift,
   Heart,
   HardDrive,
   Home,
   ListTodo,
+  Leaf,
   MapPin,
   Menu,
   Network,
@@ -45,6 +48,7 @@ import {
   Trash2,
   TrendingUp,
   Trophy,
+  Users,
   Volume2,
   X,
   Zap,
@@ -56,6 +60,7 @@ type View = "today" | "planning" | "focus" | "habits" | "metrics" | "journal" | 
 type Resource = "habit" | "habitLog" | "metric" | "journal" | "bullet" | "gratitude" | "mindNode" | "program" | "programLog" | "project" | "projectTask" | "planGoal" | "planTask" | "focusSession" | "note" | "bucketItem";
 type Modal =
   | { kind: "quick" }
+  | { kind: "quickFocus" }
   | { kind: "habit"; record?: Habit }
   | { kind: "metric"; record?: Metric }
   | { kind: "bullet"; record?: BulletItem; date?: string }
@@ -72,7 +77,7 @@ type Modal =
   | null;
 
 type Habit = {
-  id: string; name: string; detail: string; category: string; color: string; active: boolean;
+  id: string; name: string; detail: string; category: string; color: string; active: boolean; createdAt?: string;
 };
 type HabitLog = { id: string; habitId: string; date: string; done: boolean; notes: string };
 type Metric = {
@@ -140,6 +145,7 @@ const emptyData: LifeData = {
 };
 
 const storageKey = "lifeos-private-v2";
+const missingValue = "—";
 const focusVolumeKey = "lifeos-focus-volume";
 const mindMapSeed: MindNode[] = [
   { id: "mind-self", label: "Yo", detail: "Mi vida hoy", area: "Centro", parentId: null, color: "center", projectId: null, x: 500, y: 300 },
@@ -185,9 +191,15 @@ export default function HomePage() {
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState<Modal>(null);
   const [cloudUser, setCloudUser] = useState<string | null>(null);
+  const [cloudUserId, setCloudUserId] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState("Solo local");
   const supabaseRef = useRef(createClient());
+  const dataRef = useRef(data);
+  const cloudHydratedRef = useRef(false);
+  const lastSyncedDataRef = useRef("");
   const today = madridDateKey(new Date());
+
+  useEffect(() => { dataRef.current = data; }, [data]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -223,10 +235,74 @@ export default function HomePage() {
   useEffect(() => {
     const supabase = supabaseRef.current;
     if (!supabase) return;
-    void supabase.auth.getSession().then(({ data: sessionData }) => setCloudUser(sessionData.session?.user.email ?? null));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setCloudUser(session?.user.email ?? null));
+    const applySession = (session: { user: { id: string; email?: string } } | null) => {
+      setCloudUser(session?.user.email ?? null);
+      setCloudUserId(session?.user.id ?? null);
+      if (!session) cloudHydratedRef.current = false;
+    };
+    void supabase.auth.getSession().then(({ data: sessionData }) => applySession(sessionData.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => applySession(session));
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const supabase = supabaseRef.current;
+    if (!supabase || !cloudUserId || !storageReady) return;
+    let cancelled = false;
+    setCloudStatus("Recuperando…");
+    void supabase.from("lifeos_snapshots").select("data, updated_at").eq("user_id", cloudUserId).maybeSingle().then(async ({ data: snapshot, error: syncError }) => {
+      if (cancelled) return;
+      if (syncError) { setCloudStatus("Error al recuperar"); return; }
+      if (snapshot?.data) {
+        const parsed = parseStoredData(JSON.stringify(snapshot.data));
+        const serialized = JSON.stringify(parsed);
+        setData(parsed);
+        lastSyncedDataRef.current = serialized;
+        setCloudStatus("Sincronizado");
+      } else if (hasPersonalData(dataRef.current)) {
+        const serialized = JSON.stringify(dataRef.current);
+        const { error: uploadError } = await supabase.from("lifeos_snapshots").upsert({ user_id: cloudUserId, data: dataRef.current, schema_version: 3, updated_at: new Date().toISOString() });
+        if (cancelled) return;
+        if (!uploadError) lastSyncedDataRef.current = serialized;
+        setCloudStatus(uploadError ? "Error al sincronizar" : "Sincronizado");
+      } else {
+        setCloudStatus("Sin datos en la nube");
+      }
+      cloudHydratedRef.current = true;
+    });
+    return () => { cancelled = true; };
+  }, [cloudUserId, storageReady]);
+
+  useEffect(() => {
+    const supabase = supabaseRef.current;
+    if (!supabase || !cloudUserId || !storageReady || !cloudHydratedRef.current) return;
+    const serialized = JSON.stringify(data);
+    if (serialized === lastSyncedDataRef.current || !hasPersonalData(data)) return;
+    setCloudStatus("Sincronizando…");
+    const timer = window.setTimeout(() => {
+      void supabase.from("lifeos_snapshots").upsert({ user_id: cloudUserId, data, schema_version: 3, updated_at: new Date().toISOString() }).then(({ error: syncError }) => {
+        if (!syncError) lastSyncedDataRef.current = serialized;
+        setCloudStatus(syncError ? "Error al sincronizar" : "Sincronizado");
+      });
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [cloudUserId, data, storageReady]);
+
+  useEffect(() => {
+    const supabase = supabaseRef.current;
+    if (!supabase || !cloudUserId) return;
+    const channel = supabase.channel(`lifeos-${cloudUserId}`).on("postgres_changes", { event: "UPDATE", schema: "public", table: "lifeos_snapshots", filter: `user_id=eq.${cloudUserId}` }, (payload) => {
+      const incoming = (payload.new as { data?: unknown }).data;
+      if (!incoming) return;
+      const parsed = parseStoredData(JSON.stringify(incoming));
+      const serialized = JSON.stringify(parsed);
+      if (serialized === lastSyncedDataRef.current) return;
+      lastSyncedDataRef.current = serialized;
+      setData(parsed);
+      setCloudStatus("Sincronizado");
+    }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [cloudUserId]);
 
   const save = useCallback(async (resource: Resource, payload: Record<string, unknown>, message = "Registro guardado") => {
     setData((current) => saveLocalRecord(current, resource, payload));
@@ -259,11 +335,13 @@ export default function HomePage() {
   const loginWithGoogle = useCallback(async () => {
     const supabase = supabaseRef.current;
     if (!supabase) { setToast("Falta conectar el entorno de Supabase"); return; }
-    await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+    const { error: loginError } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+    if (loginError) setToast("No se pudo iniciar sesión con Google");
   }, []);
 
   const logoutCloud = useCallback(async () => {
     await supabaseRef.current?.auth.signOut();
+    setCloudUserId(null);
     setCloudStatus("Solo local");
   }, []);
 
@@ -273,7 +351,9 @@ export default function HomePage() {
     setCloudStatus("Sincronizando…");
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) { setCloudStatus("Inicia sesión"); return; }
-    const { error: syncError } = await supabase.from("lifeos_snapshots").upsert({ user_id: authData.user.id, data, schema_version: 2, updated_at: new Date().toISOString() });
+    const serialized = JSON.stringify(data);
+    const { error: syncError } = await supabase.from("lifeos_snapshots").upsert({ user_id: authData.user.id, data, schema_version: 3, updated_at: new Date().toISOString() });
+    if (!syncError) lastSyncedDataRef.current = serialized;
     setCloudStatus(syncError ? "Error al sincronizar" : "Sincronizado ahora");
     setToast(syncError ? "No se pudo sincronizar" : "Copia segura actualizada");
     window.setTimeout(() => setToast(""), 2400);
@@ -288,7 +368,9 @@ export default function HomePage() {
     const { data: snapshot, error: syncError } = await supabase.from("lifeos_snapshots").select("data, updated_at").eq("user_id", authData.user.id).maybeSingle();
     if (syncError) { setCloudStatus("Error al recuperar"); return; }
     if (!snapshot?.data) { setCloudStatus("Sin copia en la nube"); return; }
-    setData(parseStoredData(JSON.stringify(snapshot.data)));
+    const parsed = parseStoredData(JSON.stringify(snapshot.data));
+    lastSyncedDataRef.current = JSON.stringify(parsed);
+    setData(parsed);
     setCloudStatus("Copia recuperada");
     setToast("Datos recuperados de la nube");
     window.setTimeout(() => setToast(""), 2400);
@@ -298,10 +380,10 @@ export default function HomePage() {
     try {
       const parsed = JSON.parse(await file.text()) as { data?: unknown };
       setData(parseStoredData(JSON.stringify(parsed.data ?? parsed)));
-      setToast("Copia importada · revisa y sincroniza");
+      setToast(cloudUserId ? "Copia importada · sincronización automática activa" : "Copia importada");
       window.setTimeout(() => setToast(""), 2600);
     } catch { setToast("La copia no tiene un formato válido"); }
-  }, []);
+  }, [cloudUserId]);
 
   const toggleHabit = useCallback(async (habit: Habit, date = today) => {
     const log = data.habitLogs.find((item) => item.habitId === habit.id && item.date === date);
@@ -361,7 +443,7 @@ export default function HomePage() {
             {view === "planning" && <PlanningView data={data} today={today} onOpen={setModal} onSave={save} onDelete={remove} />}
             {view === "focus" && <FocusView data={data} today={today} onSave={save} onDelete={(id) => remove("focusSession", id)} />}
             {view === "habits" && <HabitsView data={data} today={today} onToggle={toggleHabit} onOpen={setModal} onDelete={(id) => remove("habit", id)} />}
-            {view === "metrics" && <MetricsView metrics={data.metrics} onOpen={setModal} onDelete={(id) => remove("metric", id)} />}
+            {view === "metrics" && <MetricsView data={data} onOpen={setModal} onDelete={(id) => remove("metric", id)} />}
             {view === "journal" && <JournalView data={data} today={today} onSave={save} onOpen={setModal} onToggleBullet={toggleBullet} onDelete={remove} />}
             {view === "gratitude" && <GratitudeView data={data} today={today} onOpen={setModal} onDelete={(id) => remove("gratitude", id)} />}
             {view === "mindmap" && <MindMapView data={data} onOpen={setModal} onDelete={(id) => remove("mindNode", id)} />}
@@ -396,7 +478,7 @@ export default function HomePage() {
       </div>}
       <button className="mobile-fab" onClick={() => setModal({ kind: "quick" })} aria-label="Registrar"><Plus size={24} /></button>
       {toast && <div className="toast"><Check size={16} /> {toast}</div>}
-      {modal && <RecordModal modal={modal} today={today} close={() => setModal(null)} save={save} navigate={setView} open={setModal} />}
+      {modal && <RecordModal modal={modal} data={data} today={today} close={() => setModal(null)} save={save} navigate={setView} open={setModal} />}
     </div>
   );
 }
@@ -414,12 +496,21 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
   const focusToday = data.focusSessions.filter((session) => session.date === today).reduce((sum, session) => sum + session.minutes, 0);
   const weekEnd = addDays(today, 7);
   const upcomingTasks = data.planTasks.filter((task) => task.status !== "done" && task.dueDate && task.dueDate >= today && task.dueDate <= weekEnd);
-  const upcomingGoals = data.planGoals.filter((goal) => goal.status !== "done" && goal.targetDate && goal.targetDate >= today && goal.targetDate <= weekEnd);
+  const upcomingGoals = data.planGoals.filter((goal) => !goalCompletion(goal, data.planTasks).complete && goal.targetDate && goal.targetDate >= today && goal.targetDate <= weekEnd);
   const upcomingPlan = [
     ...upcomingTasks.map((task) => ({ id: task.id, title: task.title, date: task.dueDate as string, type: "Tarea", projectId: task.projectId })),
     ...upcomingGoals.map((goal) => ({ id: goal.id, title: goal.title, date: goal.targetDate as string, type: "Objetivo", projectId: goal.projectId })),
   ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 7);
   const percent = activeHabits.length ? Math.round(todayLogs.filter((log) => activeHabits.some((habit) => habit.id === log.habitId)).length / activeHabits.length * 100) : 0;
+  const weekDays = lastDays(today, 7);
+  const weekMetrics = data.metrics.filter((metric) => weekDays.includes(metric.date));
+  const weekWeight = weekMetrics.find((metric) => metric.weight != null)?.weight;
+  const weekMood = average(weekMetrics.map((metric) => metric.mood));
+  const weekHabitLogs = data.habitLogs.filter((log) => log.done && weekDays.includes(log.date) && activeHabits.some((habit) => habit.id === log.habitId));
+  const weekFocus = data.focusSessions.filter((session) => weekDays.includes(session.date)).reduce((sum, session) => sum + session.minutes, 0);
+  const journalStreak = streakStats(data.journals.map((item) => item.date), today);
+  const checkinStreak = streakStats(data.metrics.map((item) => item.date), today);
+  const habitStreaks = activeHabits.map((habit) => ({ habit, ...streakStats(data.habitLogs.filter((log) => log.habitId === habit.id && log.done).map((log) => log.date), today) })).sort((a, b) => b.current - a.current || b.best - a.best);
   return (
     <div className="page-content today-page">
       <section className="welcome-card">
@@ -431,6 +522,11 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
         </div>
         <div className="orbit-wrap" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="planet"><Moon size={30} /></div><span className="tiny-star star-one">✦</span><span className="tiny-star star-two">·</span><span className="tiny-star star-three">✧</span></div>
       </section>
+      <section className="card weekly-life-card">
+        <div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> TU SEMANA EN LIFEOS</span><h3>Una mirada a los últimos 7 días</h3></div><small>{formatTinyDate(weekDays[0])} — {formatTinyDate(today)}</small></div>
+        <div className="weekly-life-grid"><div><Scale size={16} /><span>Peso</span><strong>{metricValue(weekWeight, "kg")}</strong></div><div><Heart size={16} /><span>Ánimo medio</span><strong>{weekMood == null ? missingValue : `${formatDecimal(weekMood)}/5`}</strong></div><div><CheckCircle2 size={16} /><span>Hábitos hechos</span><strong>{weekHabitLogs.length}</strong></div><div><Timer size={16} /><span>Tiempo de foco</span><strong>{formatMinutes(weekFocus)}</strong></div><div><PenLine size={16} /><span>Racha journal</span><strong>{journalStreak.current} días</strong></div></div>
+        <div className="dashboard-streaks"><span><Flame size={14} /> Mejor hábito actual: <strong>{habitStreaks[0]?.current ? `${habitStreaks[0].habit.name} · ${habitStreaks[0].current} días` : missingValue}</strong></span><span><BookOpen size={14} /> Journal: <strong>{journalStreak.current} actual · {journalStreak.best} mejor</strong></span><span><BarChart3 size={14} /> Check-in: <strong>{checkinStreak.current} actual · {checkinStreak.best} mejor</strong></span></div>
+      </section>
       <div className="dashboard-grid">
         <div className="left-column">
           <section className="card">
@@ -438,7 +534,7 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
             <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
             {activeHabits.length ? <div className="habit-grid">{activeHabits.slice(0, 6).map((habit) => {
               const done = todayLogs.some((log) => log.habitId === habit.id);
-              return <button key={habit.id} className={`habit ${habit.color} ${done ? "completed" : ""}`} onClick={() => onToggleHabit(habit)}><span className="habit-icon"><Activity size={18} /></span><span><strong>{habit.name}</strong><small>{habit.detail || habit.category}</small></span><span className="habit-check">{done && <Check size={14} />}</span></button>;
+              return <button key={habit.id} className={`habit ${habit.color} ${done ? "completed" : ""}`} onClick={() => onToggleHabit(habit)}><span className="habit-icon">{habitCategoryIcon(habit.category, 18)}</span><span><strong>{habit.name}</strong><small>{habit.detail || habit.category}</small></span><span className="habit-check">{done && <Check size={14} />}</span></button>;
             })}</div> : <EmptyState text="Aún no tienes hábitos. Crea el primero para empezar." action="Crear hábito" onClick={() => onOpen({ kind: "habit" })} />}
           </section>
           <section className="card">
@@ -464,8 +560,8 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
           <section className="card checkin-card">
             <div className="card-heading compact"><div><span className="section-label dark"><Heart size={14} /> CHECK-IN</span><h3>¿Cómo estás?</h3></div><button className="icon-button small" onClick={() => onOpen({ kind: "metric", record: todayMetric })}><Edit3 size={15} /></button></div>
             {todayMetric ? <>
-              <div className="mood-display"><span>{moodEmoji(todayMetric.mood)}</span><div><strong>Ánimo {todayMetric.mood ?? "—"}/5</strong><small>Energía {todayMetric.energy ?? "—"}/10 · Estrés {todayMetric.stress ?? "—"}/10</small></div></div>
-              <div className="metric-row"><div className="metric-icon"><Scale size={18} /></div><div><span>Peso actual</span><strong>{formatNumber(todayMetric.weight)} <small>kg</small></strong></div><span className="metric-change">{formatNumber(todayMetric.sleepHours)} h sueño</span></div>
+              <div className="mood-display"><span>{moodEmoji(todayMetric.mood) || missingValue}</span><div><strong>{todayMetric.mood == null ? `Ánimo ${missingValue}` : `Ánimo ${todayMetric.mood}/5`}</strong><small>{todayMetric.energy == null ? `Energía ${missingValue}` : `Energía ${todayMetric.energy}/10`} · {todayMetric.stress == null ? `Estrés ${missingValue}` : `Estrés ${todayMetric.stress}/10`}</small></div></div>
+              <div className="metric-row"><div className="metric-icon"><Scale size={18} /></div><div><span>Peso actual</span><strong>{metricValue(todayMetric.weight, "kg")}</strong></div><span className="metric-change">{todayMetric.sleepHours == null ? missingValue : `${formatNumber(todayMetric.sleepHours)} h sueño`}</span></div>
             </> : <EmptyState text="Todavía no has registrado tus métricas de hoy." action="Registrar ahora" onClick={() => onOpen({ kind: "metric" })} />}
           </section>
           <section className="card project-preview-card">
@@ -518,10 +614,11 @@ function FocusView({ data, today, onSave, onDelete }: {
   const todaySessions = data.focusSessions.filter((session) => session.date === today);
   const weekMinutes = weekSessions.reduce((sum, session) => sum + session.minutes, 0);
   const todayMinutes = todaySessions.reduce((sum, session) => sum + session.minutes, 0);
-  const categoryNames = Array.from(new Set(["Trabajo profundo", "Gestión", "Reuniones", "Aprendizaje", "Administración", "Creatividad", ...data.focusSessions.map((session) => session.category)])).filter(Boolean);
+  const categoryNames = focusCategoryNames(data.focusSessions);
   const categoryTotals = categoryNames.map((name) => ({ name, minutes: weekSessions.filter((session) => session.category === name).reduce((sum, session) => sum + session.minutes, 0) })).filter((item) => item.minutes > 0).sort((a, b) => b.minutes - a.minutes);
   const projectTotals = data.projects.map((project) => ({ project, minutes: weekSessions.filter((session) => session.projectId === project.id).reduce((sum, session) => sum + session.minutes, 0) })).filter((item) => item.minutes > 0).sort((a, b) => b.minutes - a.minutes);
   const maxDayMinutes = Math.max(25, ...weekDays.map((date) => weekSessions.filter((session) => session.date === date).reduce((sum, session) => sum + session.minutes, 0)));
+  const focusAxisMax = Math.max(30, Math.ceil(maxDayMinutes / 30) * 30);
 
   useEffect(() => {
     const rawVolume = window.localStorage.getItem(focusVolumeKey);
@@ -651,7 +748,7 @@ function FocusView({ data, today, onSave, onDelete }: {
         <div className="timer-ring" style={{ "--timer-progress": `${progress * 3.6}deg` } as React.CSSProperties}><div><span>{mode === "focus" ? "TIEMPO DE ENFOQUE" : "DESCANSO"}</span><strong>{formatTimer(remaining)}</strong><small>{running ? "Sesión en marcha" : remaining === 0 ? "Bloque terminado" : "Listo para empezar"}</small></div></div>
         {mode === "focus" ? <div className="focus-session-form">
           <label>¿En qué vas a trabajar?<input value={task} disabled={running} onChange={(event) => setTask(event.target.value)} placeholder="Ej. Preparar propuesta para un cliente" /></label>
-          <div className="form-grid"><label>Categoría<input list="focus-categories" value={category} disabled={running} onChange={(event) => setCategory(event.target.value)} /><datalist id="focus-categories">{categoryNames.map((name) => <option key={name} value={name} />)}</datalist></label><label>Proyecto<select value={projectId} disabled={running} onChange={(event) => setProjectId(event.target.value)}><option value="">Sin proyecto</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label></div>
+          <div className="form-grid"><CategoryPicker value={category} categories={categoryNames} disabled={running} onChange={setCategory} /><label>Proyecto<select value={projectId} disabled={running} onChange={(event) => setProjectId(event.target.value)}><option value="">Sin proyecto</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label></div>
         </div> : <p className="break-copy">Aléjate de la pantalla, muévete y deja que la mente descanse. Los descansos no se suman al tiempo trabajado.</p>}
         {mode === "focus" && !task.trim() && !running && <small className="timer-help">Escribe una tarea concreta antes de iniciar el temporizador.</small>}
         {mode === "focus" && task.trim() && <small className="timer-help auto-break-help">Al completar los 45 minutos, la pausa de 10 minutos comenzará automáticamente.</small>}
@@ -667,7 +764,7 @@ function FocusView({ data, today, onSave, onDelete }: {
       </section>
       <aside className="focus-side">
         <div className="focus-stat-grid"><article><span>HOY</span><strong>{formatMinutes(todayMinutes)}</strong><small>{todaySessions.length} sesiones</small></article><article><span>7 DÍAS</span><strong>{formatMinutes(weekMinutes)}</strong><small>{weekSessions.length} sesiones</small></article></div>
-        <section className="card focus-week-chart"><div className="card-heading"><div><span className="section-label dark"><BarChart3 size={14} /> RITMO SEMANAL</span><h3>Minutos de enfoque</h3></div></div><div className="focus-bars">{weekDays.map((date) => { const minutes = weekSessions.filter((session) => session.date === date).reduce((sum, session) => sum + session.minutes, 0); return <div key={date}><span className="focus-bar-value">{minutes || ""}</span><i><b style={{ height: `${Math.max(minutes ? 8 : 2, minutes / maxDayMinutes * 100)}%` }} /></i><small>{shortDay(date).slice(0, 2)}</small></div>; })}</div></section>
+        <section className="card focus-week-chart"><div className="card-heading"><div><span className="section-label dark"><BarChart3 size={14} /> RITMO SEMANAL</span><h3>Minutos de enfoque</h3></div></div><div className="bar-chart-with-axis"><div className="bar-y-axis"><span>{focusAxisMax}</span><span>{Math.round(focusAxisMax / 2)}</span><span>0</span></div><div className="focus-bars">{weekDays.map((date) => { const minutes = weekSessions.filter((session) => session.date === date).reduce((sum, session) => sum + session.minutes, 0); return <div key={date}><span className="focus-bar-value">{minutes || ""}</span><i><b style={{ height: `${Math.max(minutes ? 8 : 2, minutes / focusAxisMax * 100)}%` }} /></i><small>{shortDay(date).slice(0, 2)}</small></div>; })}</div></div></section>
       </aside>
     </div>
     <section className="card manual-time-card">
@@ -676,7 +773,7 @@ function FocusView({ data, today, onSave, onDelete }: {
         <label>Tarea o actividad<input required value={manualTask} onChange={(event) => setManualTask(event.target.value)} placeholder="Ej. Reunión con proveedor" /></label>
         <label>Fecha<input required type="date" value={manualDate} max={today} onChange={(event) => setManualDate(event.target.value)} /></label>
         <label>Minutos<input required type="number" min="1" max="1440" step="1" value={manualMinutes} onChange={(event) => setManualMinutes(event.target.value)} /></label>
-        <label>Categoría<input required list="manual-focus-categories" value={manualCategory} onChange={(event) => setManualCategory(event.target.value)} /><datalist id="manual-focus-categories">{categoryNames.map((name) => <option key={name} value={name} />)}</datalist></label>
+        <CategoryPicker value={manualCategory} categories={categoryNames} required onChange={setManualCategory} />
         <label>Proyecto<select value={manualProjectId} onChange={(event) => setManualProjectId(event.target.value)}><option value="">Sin proyecto</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label>
         <button className="primary-button manual-time-submit" type="submit"><Save size={16} /> Guardar tiempo</button>
       </form>
@@ -697,15 +794,16 @@ function HabitsView({ data, today, onToggle, onOpen, onDelete }: {
   return <div className="page-content subpage">
     <section className="section-intro"><div><span className="section-label dark"><Flame size={14} /> CONSTANCIA</span><h2>Hábitos diarios y mensuales</h2><p>Marca cada día, crea nuevos hábitos y ajusta los que ya no encajan contigo.</p></div><button className="primary-button" onClick={() => onOpen({ kind: "habit" })}><Plus size={17} /> Nuevo hábito</button></section>
     <section className="card tracker-card">
-      <div className="tracker-head"><span>Hábito</span>{days.map((day) => <span key={day}>{shortDay(day)}</span>)}<span>Acciones</span></div>
-      {data.habits.map((habit) => <div className={`tracker-row ${!habit.active ? "inactive" : ""}`} key={habit.id}>
-        <div className="tracker-name"><span className={`habit-icon ${habit.color}`}><Activity size={17} /></span><div><strong>{habit.name}</strong><small>{habit.detail || habit.category}{!habit.active ? " · Pausado" : ""}</small></div></div>
+      <div className="tracker-head"><span>Hábito</span>{days.map((day) => <span key={day} title={formatLongDate(day)}>{shortDay(day)}</span>)}<span>Acciones</span></div>
+      {data.habits.map((habit) => { const streak = streakStats(data.habitLogs.filter((log) => log.habitId === habit.id && log.done).map((log) => log.date), today); return <div className={`tracker-row ${!habit.active ? "inactive" : ""}`} key={habit.id}>
+        <div className="tracker-name"><span className={`habit-icon ${habit.color}`}>{habitCategoryIcon(habit.category, 17)}</span><div><strong>{habit.name}</strong><small>{habit.detail || habit.category}{!habit.active ? " · Pausado" : ""} · 🔥 {streak.current} actual · mejor {streak.best}</small></div></div>
         {days.map((day) => {
           const done = data.habitLogs.some((log) => log.habitId === habit.id && log.date === day && log.done);
-          return <button key={day} className={`day-check ${done ? "done" : ""}`} onClick={() => onToggle(habit, day)} aria-label={`${habit.name}, ${day}`}>{done ? <Check size={15} /> : day.slice(-2)}</button>;
+          const notApplicable = !habit.active && !done;
+          return <button key={day} disabled={notApplicable} className={`day-check ${done ? "done" : notApplicable ? "not-applicable" : "empty"}`} title={`${formatLongDate(day)} · ${done ? "Completado" : notApplicable ? "No aplica" : "Pendiente"}`} onClick={() => onToggle(habit, day)} aria-label={`${habit.name}, ${formatLongDate(day)}: ${done ? "completado" : notApplicable ? "no aplica" : "pendiente"}`}>{done ? <Check size={15} /> : notApplicable ? <span aria-hidden="true">—</span> : null}</button>;
         })}
         <div className="row-actions"><button onClick={() => onOpen({ kind: "habit", record: habit })} aria-label="Editar"><Edit3 size={15} /></button><button onClick={() => onDelete(habit.id)} aria-label="Eliminar"><Trash2 size={15} /></button></div>
-      </div>)}
+      </div>})}
       {!data.habits.length && <EmptyState text="Crea tu primer hábito para empezar el seguimiento." action="Crear hábito" onClick={() => onOpen({ kind: "habit" })} />}
     </section>
     <div className="summary-grid">
@@ -716,7 +814,8 @@ function HabitsView({ data, today, onToggle, onOpen, onDelete }: {
   </div>;
 }
 
-function MetricsView({ metrics, onOpen, onDelete }: { metrics: Metric[]; onOpen: (modal: Modal) => void; onDelete: (id: string) => void }) {
+function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (modal: Modal) => void; onDelete: (id: string) => void }) {
+  const metrics = data.metrics;
   const latest = metrics[0];
   const previous = metrics[1];
   const weightMetrics = metrics.filter((metric) => metric.weight != null).slice(0, 30).reverse();
@@ -738,18 +837,23 @@ function MetricsView({ metrics, onOpen, onDelete }: { metrics: Metric[]; onOpen:
   const screenMetrics = metrics.filter((metric) => metric.screenTimeHours != null).slice(0, 14).reverse();
   const screenValues = screenMetrics.map((metric) => Number(metric.screenTimeHours));
   const screenMax = screenValues.length ? Math.max(...screenValues, 1) : 1;
+  const screenAxisMax = Math.max(1, Math.ceil(screenMax * 2) / 2);
   const screenAverage = screenValues.length ? screenValues.reduce((sum, value) => sum + value, 0) / screenValues.length : null;
   const lowestScreenMetric = screenMetrics.length
     ? screenMetrics.reduce((lowest, metric) => Number(metric.screenTimeHours) < Number(lowest.screenTimeHours) ? metric : lowest)
     : null;
+  const currentDate = madridDateKey(new Date());
+  const checkinStreak = streakStats(metrics.map((metric) => metric.date), currentDate);
+  const weightStreak = streakStats(metrics.filter((metric) => metric.weight != null).map((metric) => metric.date), currentDate);
+  const metricInsights = buildMetricInsights(data);
   return <div className="page-content subpage">
     <section className="section-intro"><div><span className="section-label dark"><BarChart3 size={14} /> KPIs DE BIENESTAR</span><h2>Mide para entenderte, no para juzgarte</h2><p>Peso, ánimo, energía, sueño, agua, estrés, movimiento y tiempo de pantalla en un registro diario.</p></div><button className="primary-button" onClick={() => onOpen({ kind: "metric" })}><Plus size={17} /> Registrar hoy</button></section>
     <div className="metrics-grid metrics-live">
-      <MetricCard icon={<Scale size={19} />} label="Peso" value={latest?.weight == null ? "—" : `${formatNumber(latest.weight)} kg`} note={weightChange(latest, previous)} color="lilac" />
-      <MetricCard icon={<Heart size={19} />} label="Ánimo" value={latest?.mood == null ? "—" : `${moodEmoji(latest.mood)} ${latest.mood}/5`} note={latest ? formatShortDate(latest.date) : "Sin registros"} color="rose" />
-      <MetricCard icon={<Zap size={19} />} label="Energía" value={latest?.energy == null ? "—" : `${latest.energy}/10`} note={latest?.stress == null ? "Estrés sin registrar" : `Estrés ${latest.stress}/10`} color="sand" />
-      <MetricCard icon={<Moon size={19} />} label="Sueño" value={latest?.sleepHours == null ? "—" : `${formatNumber(latest.sleepHours)} h`} note={latest?.waterLiters == null ? "Agua sin registrar" : `${formatNumber(latest.waterLiters)} L de agua`} color="green" />
-      <MetricCard icon={<Smartphone size={19} />} label="Tiempo de pantalla" value={latest?.screenTimeHours == null ? "—" : formatDuration(latest.screenTimeHours)} note={screenAverage == null ? "Sin registros" : `Media ${formatDuration(screenAverage)}`} color="lilac" />
+      <MetricCard icon={<Scale size={19} />} label="Peso" value={metricValue(latest?.weight, "kg")} note={weightChange(latest, previous)} color="lilac" />
+      <MetricCard icon={<Heart size={19} />} label="Ánimo" value={latest?.mood == null ? missingValue : `${moodEmoji(latest.mood)} ${latest.mood}/5`} note={latest ? formatShortDate(latest.date) : missingValue} color="rose" />
+      <MetricCard icon={<Zap size={19} />} label="Energía" value={latest?.energy == null ? missingValue : `${latest.energy}/10`} note={latest?.stress == null ? missingValue : `Estrés ${latest.stress}/10`} color="sand" />
+      <MetricCard icon={<Moon size={19} />} label="Sueño" value={metricValue(latest?.sleepHours, "h")} note={latest?.waterLiters == null ? missingValue : `${formatNumber(latest.waterLiters)} L de agua`} color="green" />
+      <MetricCard icon={<Smartphone size={19} />} label="Tiempo de pantalla" value={latest?.screenTimeHours == null ? missingValue : formatDuration(latest.screenTimeHours)} note={screenAverage == null ? missingValue : `Media ${formatDuration(screenAverage)}`} color="lilac" />
     </div>
     <div className="visual-metrics-grid">
       <section className="card weight-chart-card">
@@ -779,22 +883,26 @@ function MetricsView({ metrics, onOpen, onDelete }: { metrics: Metric[]; onOpen:
     </div>
     <section className="card screen-chart-card">
       <div className="card-heading"><div><span className="section-label dark"><Smartphone size={14} /> TIEMPO DE PANTALLA</span><h3>Tu consumo digital</h3></div><div className="screen-summary"><div><strong>{screenAverage == null ? "—" : formatDuration(screenAverage)}</strong><span>promedio</span></div><div><strong>{lowestScreenMetric?.screenTimeHours == null ? "—" : formatDuration(lowestScreenMetric.screenTimeHours)}</strong><span>{lowestScreenMetric ? `mejor día · ${formatTinyDate(lowestScreenMetric.date)}` : "mejor día"}</span></div></div></div>
-      {screenMetrics.length ? <div className="screen-bars" role="img" aria-label="Gráfico del tiempo de pantalla de los últimos 14 registros">
+      {screenMetrics.length ? <div className="bar-chart-with-axis screen-axis-wrap" role="img" aria-label="Gráfico del tiempo de pantalla de los últimos 14 registros"><div className="bar-y-axis"><span>{formatNumber(screenAxisMax)} h</span><span>{formatNumber(screenAxisMax / 2)} h</span><span>0</span></div><div className="screen-bars">
         {screenMetrics.map((metric) => <div className="screen-bar-column" key={metric.id} title={`${formatShortDate(metric.date)}: ${formatDuration(metric.screenTimeHours)}`}>
-          <div><span style={{ height: `${Math.max(8, (Number(metric.screenTimeHours) / screenMax) * 100)}%` }} /></div>
+          <div><span style={{ height: `${Math.max(8, (Number(metric.screenTimeHours) / screenAxisMax) * 100)}%` }} /></div>
           <strong>{formatDurationCompact(metric.screenTimeHours)}</strong>
           <small>{formatTinyDate(metric.date)}</small>
         </div>)}
-      </div> : <EmptyState text="Registra el tiempo de pantalla que muestra tu móvil para empezar a ver la tendencia." action="Registrar tiempo" onClick={() => onOpen({ kind: "metric" })} />}
+      </div></div> : <EmptyState text="Registra el tiempo de pantalla que muestra tu móvil para empezar a ver la tendencia." action="Registrar tiempo" onClick={() => onOpen({ kind: "metric" })} />}
     </section>
     <section className="card history-card">
       <div className="card-heading"><div><span className="section-label dark"><TrendingUp size={14} /> HISTORIAL</span><h3>Tus registros</h3></div><span className="date-pill">{metrics.length} días</span></div>
       <div className="history-table">
         <div className="history-head"><span>Fecha</span><span>Peso</span><span>Ánimo</span><span>Energía</span><span>Sueño</span><span>Pantalla</span><span></span></div>
-        {metrics.map((metric) => <div className="history-row" key={metric.id}><span><strong>{formatShortDate(metric.date)}</strong></span><span>{formatNumber(metric.weight)} kg</span><span>{moodEmoji(metric.mood)} {metric.mood ?? "—"}/5</span><span>{metric.energy ?? "—"}/10</span><span>{formatNumber(metric.sleepHours)} h</span><span>{formatDuration(metric.screenTimeHours)}</span><span className="row-actions"><button onClick={() => onOpen({ kind: "metric", record: metric })}><Edit3 size={15} /></button><button onClick={() => onDelete(metric.id)}><Trash2 size={15} /></button></span></div>)}
+        {metrics.map((metric) => <div className="history-row" key={metric.id}><span><strong>{formatShortDate(metric.date)}</strong></span><span>{metricValue(metric.weight, "kg")}</span><span>{metric.mood == null ? missingValue : `${moodEmoji(metric.mood)} ${metric.mood}/5`}</span><span>{metric.energy == null ? missingValue : `${metric.energy}/10`}</span><span>{metricValue(metric.sleepHours, "h")}</span><span>{formatDuration(metric.screenTimeHours)}</span><span className="row-actions"><button onClick={() => onOpen({ kind: "metric", record: metric })}><Edit3 size={15} /></button><button onClick={() => onDelete(metric.id)}><Trash2 size={15} /></button></span></div>)}
       </div>
       {!metrics.length && <EmptyState text="Aún no hay métricas. Tu primer registro solo lleva un minuto." action="Crear registro" onClick={() => onOpen({ kind: "metric" })} />}
     </section>
+    <div className="metrics-insight-grid">
+      <section className="card streak-card"><div className="card-heading"><div><span className="section-label dark"><Flame size={14} /> CONSTANCIA</span><h3>Rachas de registro</h3></div></div><div className="streak-stat-grid"><div><strong>{checkinStreak.current}</strong><span>check-in actual</span><small>Mejor: {checkinStreak.best} días</small></div><div><strong>{weightStreak.current}</strong><span>peso actual</span><small>Mejor: {weightStreak.best} días</small></div></div></section>
+      <section className="card correlation-card"><div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> INSIGHTS</span><h3>Patrones en tus datos</h3><p>Asociaciones descriptivas; no implican causalidad.</p></div></div><div className="insight-list">{metricInsights.map((insight) => <article key={insight.title}><span className={`insight-icon ${insight.color}`}>{insight.icon}</span><div><strong>{insight.title}</strong><p>{insight.text}</p><small>{insight.sample}</small></div></article>)}</div></section>
+    </div>
   </div>;
 }
 
@@ -819,6 +927,7 @@ function JournalView({ data, today, onSave, onOpen, onToggleBullet, onDelete }: 
     finally { setSaving(false); }
   }
   const dayBullets = data.bullets.filter((item) => item.date === selectedDate);
+  const journalStreak = streakStats(data.journals.map((item) => item.date), today);
   return <div className="page-content subpage journal-page">
     <div className="journal-layout">
       <section className="card writing-card">
@@ -836,8 +945,8 @@ function JournalView({ data, today, onSave, onOpen, onToggleBullet, onDelete }: 
           {!dayBullets.length && <EmptyState text="Sin tareas, notas ni eventos para este día." action="Añadir" onClick={() => onOpen({ kind: "bullet", date: selectedDate })} />}
         </section>
         <section className="card past-notes">
-          <div className="card-heading"><div><span className="section-label dark"><BookOpen size={14} /> RECUERDOS</span><h3>Entradas recientes</h3></div></div>
-          {data.journals.slice(0, 8).map((item) => <button key={item.id} onClick={() => setSelectedDate(item.date)}><span>{formatTinyDate(item.date)}</span><div><strong>{item.title || "Entrada del día"}</strong><small>{item.content.slice(0, 65) || "Reflexión guiada"}</small></div></button>)}
+          <div className="card-heading"><div><span className="section-label dark"><BookOpen size={14} /> RECUERDOS</span><h3>Entradas recientes</h3></div><span className="streak-pill"><Flame size={13} /> {journalStreak.current} días · mejor {journalStreak.best}</span></div>
+          {data.journals.slice(0, 8).map((item) => <button key={item.id} onClick={() => setSelectedDate(item.date)}><span>{formatTinyDate(item.date)}</span><div><strong>{item.title || "Entrada del día"}</strong><small>{truncateAtWord(item.content, 65) || "Reflexión guiada"}</small></div></button>)}
         </section>
       </aside>
     </div>
@@ -924,7 +1033,7 @@ function PlanningView({ data, today, onOpen, onSave, onDelete }: {
   const visibleTasks = data.planTasks.filter((task) => !!task.goalId && visibleGoalIds.has(task.goalId)).concat(standaloneTasks);
   const completedTasks = visibleTasks.filter((task) => task.status === "done").length;
   const linkedProjects = new Set([...visibleGoals.map((goal) => goal.projectId), ...visibleTasks.map((task) => task.projectId)].filter(Boolean)).size;
-  const completedGoals = visibleGoals.filter((goal) => goal.status === "done").length;
+  const completedGoals = visibleGoals.filter((goal) => goalCompletion(goal, data.planTasks).complete).length;
   const totalProgress = visibleTasks.length ? Math.round(completedTasks / visibleTasks.length * 100) : visibleGoals.length ? Math.round(completedGoals / visibleGoals.length * 100) : 0;
 
   function movePeriod(direction: number) {
@@ -955,7 +1064,7 @@ function PlanningView({ data, today, onOpen, onSave, onDelete }: {
     </div>
     {scope === "quarter" && <section className="quarter-map"><div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14} /> MESES DEL TRIMESTRE</span><h3>Del trimestre al mes</h3></div><span className="date-pill">{quarterLabel(period)}</span></div><div className="quarter-month-grid">{quarterMonths.map((month) => {
       const monthGoals = data.planGoals.filter((goal) => goal.scope === "month" && goal.period === month);
-      const done = monthGoals.filter((goal) => goal.status === "done").length;
+      const done = monthGoals.filter((goal) => goalCompletion(goal, data.planTasks).complete).length;
       return <button key={month} onClick={() => { setSelectedMonth(month); setScope("month"); }}><span>{monthLabel(month)}</span><strong>{monthGoals.length} {monthGoals.length === 1 ? "objetivo" : "objetivos"}</strong><small>{done} {done === 1 ? "completado" : "completados"} · Abrir mes →</small></button>;
     })}</div></section>}
     <section className="standalone-tasks-card"><div className="card-heading"><div><span className="section-label dark"><ListTodo size={14} /> ACCIONES DEL PERIODO</span><h3>Tareas independientes</h3><p>Acciones que debes realizar aunque no formen parte de un objetivo.</p></div><button className="add-inline top" onClick={() => onOpen({ kind: "planTask", goals: data.planGoals, projects: data.projects, defaultPeriod: selectedMonth })}><Plus size={15} /> Añadir tarea</button></div>
@@ -968,18 +1077,21 @@ function PlanningView({ data, today, onOpen, onSave, onDelete }: {
     <div className="goal-grid">{visibleGoals.map((goal) => {
       const tasks = data.planTasks.filter((task) => task.goalId === goal.id);
       const done = tasks.filter((task) => task.status === "done").length;
-      const progress = tasks.length ? Math.round(done / tasks.length * 100) : goal.status === "done" ? 100 : 0;
+      const progress = tasks.length ? Math.round(done / tasks.length * 100) : null;
+      const derivedComplete = tasks.length ? done === tasks.length : goal.status === "done";
+      const displayStatus = tasks.length ? (derivedComplete ? "done" : done ? "doing" : "todo") : goal.status;
       const project = data.projects.find((item) => item.id === goal.projectId);
-      return <article className={`goal-card ${goal.status}`} key={goal.id}>
+      return <article className={`goal-card ${displayStatus}`} key={goal.id}>
         <div className="goal-card-top"><div><span className={`priority ${goal.priority}`}>{priorityLabel(goal.priority)}</span>{project && <span className="goal-project"><FolderKanban size={12} /> {project.title}</span>}</div><div className="row-actions"><button aria-label="Editar objetivo" onClick={() => onOpen({ kind: "planGoal", projects: data.projects, record: goal })}><Edit3 size={14} /></button><button aria-label="Eliminar objetivo" onClick={() => onDelete("planGoal", goal.id)}><Trash2 size={14} /></button></div></div>
         <h3>{goal.title}</h3><p>{goal.description || "Define el resultado que quieres alcanzar durante este periodo."}</p>{goal.targetDate && <small className="goal-deadline"><CalendarDays size={12} /> Fecha límite: {formatShortDate(goal.targetDate)}</small>}
-        <div className="goal-progress"><div><span>{done}/{tasks.length} tareas</span><strong>{progress}%</strong></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></div>
+        {progress == null ? <div className="goal-progress no-tasks"><div><span>Sin tareas vinculadas</span><strong>{missingValue}</strong></div></div> : <div className="goal-progress"><div><span>{done}/{tasks.length} tareas</span><strong>{progress}%</strong></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></div>}
         <div className="plan-task-list">{tasks.map((task) => {
           const taskProject = data.projects.find((item) => item.id === task.projectId);
           return <div className={`plan-task ${task.status}`} key={task.id}><button className="plan-task-toggle" onClick={() => advanceTask(task)} aria-label={`Cambiar estado de ${task.title}`}>{task.status === "done" ? <CheckCircle2 size={17} /> : task.status === "doing" ? <Activity size={17} /> : <Circle size={17} />}</button><div><strong>{task.title}</strong><small>{task.dueDate ? formatShortDate(task.dueDate) : "Sin fecha"}{taskProject ? ` · ${taskProject.title}` : ""}</small></div><div className="row-actions"><button aria-label="Editar tarea" onClick={() => onOpen({ kind: "planTask", goal, goals: data.planGoals, projects: data.projects, record: task })}><Edit3 size={13} /></button><button aria-label="Eliminar tarea" onClick={() => onDelete("planTask", task.id)}><Trash2 size={13} /></button></div></div>;
         })}</div>
         <button className="goal-add-task" onClick={() => onOpen({ kind: "planTask", goal, goals: data.planGoals, projects: data.projects })}><Plus size={14} /> Añadir tarea</button>
-        <button className={`goal-complete ${goal.status === "done" ? "done" : ""}`} onClick={() => toggleGoal(goal)}>{goal.status === "done" ? <><CheckCircle2 size={15} /> Objetivo completado</> : <><Circle size={15} /> Marcar objetivo como completado</>}</button>
+        {!tasks.length && <button className={`goal-complete ${goal.status === "done" ? "done" : ""}`} onClick={() => toggleGoal(goal)}>{goal.status === "done" ? <><CheckCircle2 size={15} /> Objetivo completado manualmente</> : <><Circle size={15} /> Marcar objetivo como completado</>}</button>}
+        {!!tasks.length && <small className="goal-derived-note">El avance y el estado se calculan automáticamente desde las tareas.</small>}
       </article>;
     })}</div>
   </div>;
@@ -1080,23 +1192,23 @@ function MoreView({ data, onNavigate, onDownload, onImport, cloudUser, cloudStat
     { title: "Mapa vital", text: `${data.mindNodes.length} elementos conectados`, icon: Network, color: "mint", view: "mindmap" as View },
   ];
   return <div className="page-content subpage">
-    <section className="more-hero"><span className="section-label light"><Sparkles size={14} /> TU UNIVERSO PERSONAL</span><h2>Todo lo que importa,<br />registrado en un lugar.</h2><p>LifeOS guarda primero los datos en este navegador para funcionar incluso sin conexión. Cuando accedes con Google, puedes crear y recuperar una copia privada en la nube.</p></section>
+    <section className="more-hero"><span className="section-label light"><Sparkles size={14} /> TU UNIVERSO PERSONAL</span><h2>Todo lo que importa,<br />registrado en un lugar.</h2><p>LifeOS guarda los datos en este navegador para funcionar sin conexión y, cuando accedes con Google, los sincroniza automáticamente entre tus dispositivos.</p></section>
     <section className="local-storage-card">
       <div className="local-storage-icon"><HardDrive size={24} /></div>
       <div><span className="section-label dark">DATOS LOCALES</span><h3>Tu información vive en este ordenador</h3><p>Descarga una copia completa para conservarla antes de borrar los datos del navegador o cambiar de equipo.</p></div>
       <button className="primary-button" onClick={onDownload}><Download size={16} /> Descargar copia</button>
     </section>
     <section className="cloud-migration-card">
-      <div className="cloud-migration-heading"><span className="local-storage-icon"><Globe2 size={23} /></span><div><span className="section-label dark">SINCRONIZACIÓN PERSONAL</span><h3>{cloudUser ? `Conectado como ${cloudUser}` : "Lleva LifeOS contigo"}</h3><p>{cloudUser ? `${cloudStatus}. Tú decides cuándo subir o recuperar la copia.` : "Accede con Google para conservar una copia privada y usar los mismos datos en ordenador y móvil."}</p></div></div>
+      <div className="cloud-migration-heading"><span className="local-storage-icon"><Globe2 size={23} /></span><div><span className="section-label dark">SINCRONIZACIÓN PERSONAL</span><h3>{cloudUser ? `Conectado como ${cloudUser}` : "Lleva LifeOS contigo"}</h3><p>{cloudUser ? `${cloudStatus}. Los cambios se guardan automáticamente; los controles manuales quedan disponibles como respaldo.` : "Accede con Google para sincronizar tu copia privada entre ordenador y móvil."}</p></div></div>
       <div className="cloud-migration-actions">{cloudUser ? <><button className="primary-button" onClick={onPush}><Globe2 size={15} /> Guardar en la nube</button><button className="outline-compact" onClick={onPull}>Recuperar copia</button><button className="danger-text" onClick={onLogout}>Cerrar sesión</button></> : <button className="primary-button" onClick={onLogin}><Globe2 size={15} /> Continuar con Google</button>}<label className="outline-compact import-backup">Importar copia actual<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImport(file); event.target.value = ""; }} /></label></div>
-      <small>La importación no borra la copia original. Primero revisa los datos y después elige “Guardar en la nube”.</small>
+      <small>La importación no borra el archivo original. Si has iniciado sesión, la copia importada se sincroniza automáticamente.</small>
     </section>
     <div className="module-grid">{modules.map(({ title, text, icon: Icon, color, view }) => <button key={title} className="module-card" onClick={() => onNavigate(view)}><span className={`module-icon ${color}`}><Icon size={22} /></span><div><strong>{title}</strong><small>{text}</small></div><ArrowRight size={18} /></button>)}</div>
   </div>;
 }
 
-function RecordModal({ modal, today, close, save, navigate, open }: {
-  modal: Exclude<Modal, null>; today: string; close: () => void;
+function RecordModal({ modal, data, today, close, save, navigate, open }: {
+  modal: Exclude<Modal, null>; data: LifeData; today: string; close: () => void;
   save: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
   navigate: (view: View) => void; open: (modal: Modal) => void;
 }) {
@@ -1110,16 +1222,15 @@ function RecordModal({ modal, today, close, save, navigate, open }: {
     <div className="modal-heading"><div><span className="section-label dark"><Sparkles size={14} /> REGISTRO LIFEOS</span><h3>{modalTitle(modal)}</h3></div><button className="icon-button" onClick={close}><X size={18} /></button></div>
     {formError && <p className="form-error">{formError}</p>}
     {modal.kind === "quick" && <div className="quick-options">
-      <button onClick={() => { navigate("focus"); close(); }}><Timer size={19} /><span><strong>Iniciar Pomodoro</strong><small>Registra tiempo por categoría y proyecto</small></span><ArrowRight size={16} /></button>
+      <button onClick={() => open({ kind: "metric" })}><Heart size={19} /><span><strong>Check-in rápido</strong><small>Peso, ánimo, energía, sueño y pantalla</small></span><ArrowRight size={16} /></button>
+      <button onClick={() => open({ kind: "quickFocus" })}><Timer size={19} /><span><strong>Registrar tiempo</strong><small>Añade una sesión manual en pocos pasos</small></span><ArrowRight size={16} /></button>
+      <button onClick={() => { navigate("focus"); close(); }}><Play size={19} /><span><strong>Iniciar Pomodoro</strong><small>Comienza un bloque de enfoque de 45 minutos</small></span><ArrowRight size={16} /></button>
       <button onClick={() => { navigate("planning"); close(); }}><CalendarDays size={19} /><span><strong>Tarea u objetivo del plan</strong><small>Organiza las acciones y prioridades del periodo</small></span><ArrowRight size={16} /></button>
       <button onClick={() => { navigate("journal"); close(); }}><PenLine size={19} /><span><strong>Journal y bullet list</strong><small>Escribe, anota una tarea o registra un evento</small></span><ArrowRight size={16} /></button>
       <button onClick={() => { navigate("habits"); close(); }}><CheckCircle2 size={19} /><span><strong>Completar hábito</strong><small>Actualiza tu registro diario</small></span><ArrowRight size={16} /></button>
-      <button onClick={() => open({ kind: "metric" })}><Scale size={19} /><span><strong>Peso y métricas</strong><small>Registra cómo estás hoy</small></span><ArrowRight size={16} /></button>
-      <button onClick={() => open({ kind: "project" })}><FolderKanban size={19} /><span><strong>Nuevo proyecto</strong><small>Convierte una idea en tareas</small></span><ArrowRight size={16} /></button>
-      <button onClick={() => open({ kind: "bucketItem" })}><Star size={19} /><span><strong>Bucket list</strong><small>Añade algo que quieras vivir</small></span><ArrowRight size={16} /></button>
       <button onClick={() => open({ kind: "gratitude" })}><Gift size={19} /><span><strong>Agradecimiento</strong><small>Guarda algo bueno de este día</small></span><ArrowRight size={16} /></button>
-      <button onClick={() => { navigate("programs"); close(); }}><Rocket size={19} /><span><strong>Experimento o reto</strong><small>Registra el resultado de hoy</small></span><ArrowRight size={16} /></button>
     </div>}
+    {modal.kind === "quickFocus" && <QuickFocusForm data={data} today={today} busy={busy} onSubmit={(payload) => submit("focusSession", payload, "Tiempo registrado")} />}
     {modal.kind === "habit" && <HabitForm record={modal.record} busy={busy} onSubmit={(payload) => submit("habit", payload, modal.record ? "Hábito actualizado" : "Hábito creado")} />}
     {modal.kind === "metric" && <MetricForm record={modal.record} today={today} busy={busy} onSubmit={(payload) => submit("metric", payload, "Métricas guardadas")} />}
     {modal.kind === "bullet" && <BulletForm record={modal.record} today={modal.date ?? today} busy={busy} onSubmit={(payload) => submit("bullet", payload, modal.record ? "Elemento actualizado" : "Elemento añadido")} />}
@@ -1177,7 +1288,7 @@ function PlanGoalForm({ projects, record, defaultScope, defaultPeriod, today, bu
   function changeScope(scope: PlanGoal["scope"]) {
     setForm({ ...form, scope, period: scope === "month" ? today.slice(0, 7) : quarterKey(today.slice(0, 7)) });
   }
-  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><label>Objetivo<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Publicar la nueva web del proyecto" /></label><label>Resultado esperado<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe qué tiene que estar conseguido al terminar el periodo…" /></label><div className="form-grid"><label>Horizonte<select value={form.scope} onChange={(event) => changeScope(event.target.value as PlanGoal["scope"])}><option value="month">Objetivo mensual</option><option value="quarter">Objetivo trimestral</option></select></label>{form.scope === "month" ? <label>Mes<input type="month" value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })} /></label> : <label>Trimestre<select value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })}>{quarterOptions(today).map((quarter) => <option key={quarter} value={quarter}>{quarterLabel(quarter)}</option>)}</select></label>}<label>Proyecto relacionado<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Objetivo general</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label><label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label><label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as PlanGoal["status"] })}><option value="todo">Por empezar</option><option value="doing">En curso</option><option value="done">Completado</option></select></label><label>Fecha límite<input type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} /></label></div><SubmitButton busy={busy} label={record ? "Guardar cambios" : "Crear objetivo"} /></form>;
+  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><label>Objetivo<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Publicar la nueva web del proyecto" /></label><label>Resultado esperado<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe qué tiene que estar conseguido al terminar el periodo…" /></label><div className="form-grid"><label>Horizonte<select value={form.scope} onChange={(event) => changeScope(event.target.value as PlanGoal["scope"])}><option value="month">Objetivo mensual</option><option value="quarter">Objetivo trimestral</option></select></label>{form.scope === "month" ? <label>Mes<input type="month" value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })} /></label> : <label>Trimestre<select value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })}>{quarterOptions(today).map((quarter) => <option key={quarter} value={quarter}>{quarterLabel(quarter)}</option>)}</select></label>}<label>Proyecto relacionado<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Objetivo general</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label><label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label><label>Fecha límite<input type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} /></label></div><small className="field-help">El avance se calcula desde las tareas vinculadas. Si no tiene tareas, podrás marcarlo manualmente desde Planificación.</small><SubmitButton busy={busy} label={record ? "Guardar cambios" : "Crear objetivo"} /></form>;
 }
 
 function PlanTaskForm({ goal, goals, projects, record, defaultPeriod, today, busy, onSubmit }: { goal?: PlanGoal; goals: PlanGoal[]; projects: Project[]; record?: PlanTask; defaultPeriod?: string; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
@@ -1254,6 +1365,7 @@ function SubmitButton({ busy, label }: { busy: boolean; label: string }) { retur
 
 function modalTitle(modal: Exclude<Modal, null>) {
   if (modal.kind === "quick") return "¿Qué quieres registrar?";
+  if (modal.kind === "quickFocus") return "Registrar tiempo";
   if (modal.kind === "habit") return modal.record ? "Editar hábito" : "Nuevo hábito";
   if (modal.kind === "metric") return modal.record ? "Editar métricas" : "Métricas del día";
   if (modal.kind === "bullet") return modal.record ? "Editar elemento" : "Añadir al bullet list";
@@ -1267,6 +1379,18 @@ function modalTitle(modal: Exclude<Modal, null>) {
   if (modal.kind === "gratitude") return modal.record ? "Editar agradecimiento" : "Nuevo agradecimiento";
   if (modal.kind === "mindNode") return modal.record ? "Editar nodo" : "Añadir al mapa vital";
   return "¿Cómo fue hoy?";
+}
+
+function QuickFocusForm({ data, today, busy, onSubmit }: { data: LifeData; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
+  const categories = focusCategoryNames(data.focusSessions);
+  const [form, setForm] = useState({ date: today, task: "", minutes: "45", category: categories[0] ?? "Trabajo profundo", projectId: "" });
+  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit({ ...form, startedAt: `${form.date}T12:00:00.000Z`, completed: true, source: "manual" }); }}><label>Actividad<input required value={form.task} onChange={(event) => setForm({ ...form, task: event.target.value })} placeholder="Ej. Preparar propuesta" /></label><div className="form-grid"><label>Fecha<input required type="date" max={today} value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label><label>Minutos<input required type="number" min="1" max="1440" step="1" value={form.minutes} onChange={(event) => setForm({ ...form, minutes: event.target.value })} /></label><CategoryPicker value={form.category} categories={categories} required onChange={(category) => setForm({ ...form, category })} /><label>Proyecto<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Sin proyecto</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label></div><SubmitButton busy={busy} label="Guardar tiempo" /></form>;
+}
+
+function CategoryPicker({ value, categories, onChange, disabled, required }: { value: string; categories: string[]; onChange: (value: string) => void; disabled?: boolean; required?: boolean }) {
+  const canonical = categories.find((item) => item.toLocaleLowerCase("es") === value.trim().toLocaleLowerCase("es"));
+  const creating = !canonical;
+  return <label>Categoría<select disabled={disabled} value={creating ? "__new__" : canonical} onChange={(event) => onChange(event.target.value === "__new__" ? "" : event.target.value)}>{categories.map((name) => <option key={name} value={name}>{name}</option>)}<option value="__new__">＋ Crear nueva categoría</option></select>{creating && <input disabled={disabled} required={required} autoFocus value={value} onChange={(event) => onChange(event.target.value)} placeholder="Nombre de la nueva categoría" />}<small className="field-help">Reutiliza una categoría o elige “Crear nueva”.</small></label>;
 }
 
 function parseStoredData(raw: string): LifeData {
@@ -1283,7 +1407,7 @@ function parseStoredData(raw: string): LifeData {
     projectTasks: Array.isArray(parsed.projectTasks) ? parsed.projectTasks : [],
     planGoals: Array.isArray(parsed.planGoals) ? parsed.planGoals : [],
     planTasks: Array.isArray(parsed.planTasks) ? parsed.planTasks : [],
-    focusSessions: Array.isArray(parsed.focusSessions) ? parsed.focusSessions.map((session) => ({ ...session, minutes: Math.max(1, Math.round(Number(session.minutes) || 1)) })) : [],
+    focusSessions: Array.isArray(parsed.focusSessions) ? parsed.focusSessions.map((session) => ({ ...session, category: normalizeFocusCategory(session.category), minutes: Math.max(1, Math.round(Number(session.minutes) || 1)) })) : [],
     notes: Array.isArray(parsed.notes) ? parsed.notes : [],
     bucketItems: Array.isArray(parsed.bucketItems) ? parsed.bucketItems : [],
     gratitudes: Array.isArray(parsed.gratitudes) ? parsed.gratitudes : [],
@@ -1306,7 +1430,8 @@ function upsertLocal<T extends { id: string }>(items: T[], record: T, sameRecord
 function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<string, unknown>): LifeData {
   const id = localId(payload);
   if (resource === "habit") {
-    const record = { ...payload, id } as unknown as Habit;
+    const existing = current.habits.find((habit) => habit.id === id);
+    const record = { ...payload, id, createdAt: payload.createdAt || existing?.createdAt || madridDateKey(new Date()) } as unknown as Habit;
     return { ...current, habits: upsertLocal(current.habits, record) };
   }
   if (resource === "habitLog") {
@@ -1353,7 +1478,10 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, planTasks: upsertLocal(current.planTasks, record) };
   }
   if (resource === "focusSession") {
-    const record = { ...payload, id, projectId: payload.projectId || null, minutes: Math.max(1, Math.round(Number(payload.minutes) || 1)) } as unknown as FocusSession;
+    const categories = focusCategoryNames(current.focusSessions);
+    const requestedCategory = normalizeFocusCategory(String(payload.category ?? ""));
+    const category = categories.find((item) => item.toLocaleLowerCase("es") === requestedCategory.toLocaleLowerCase("es")) ?? requestedCategory;
+    const record = { ...payload, id, category, projectId: payload.projectId || null, minutes: Math.max(1, Math.round(Number(payload.minutes) || 1)) } as unknown as FocusSession;
     return { ...current, focusSessions: upsertLocal(current.focusSessions, record).sort((a, b) => b.startedAt.localeCompare(a.startedAt)) };
   }
   if (resource === "note") {
@@ -1399,6 +1527,108 @@ function removeLocalRecord(current: LifeData, resource: Resource, id: string): L
   return current;
 }
 
+function hasPersonalData(data: LifeData) {
+  return [data.habitLogs, data.metrics, data.journals, data.bullets, data.programs, data.projects, data.planGoals, data.planTasks, data.focusSessions, data.notes, data.bucketItems, data.gratitudes].some((items) => items.length > 0);
+}
+
+function normalizeFocusCategory(value: string) {
+  const clean = String(value ?? "").trim().replace(/\s+/g, " ");
+  if (clean.toLocaleLowerCase("es") === "desa") return "Desarrollo";
+  return clean || "Trabajo profundo";
+}
+
+function focusCategoryNames(sessions: FocusSession[]) {
+  const defaults = ["Trabajo profundo", "Gestión", "Reuniones", "Aprendizaje", "Administración", "Creatividad"];
+  const labels = new Map<string, string>();
+  [...defaults, ...sessions.map((session) => normalizeFocusCategory(session.category))].forEach((name) => {
+    const clean = normalizeFocusCategory(name);
+    const key = clean.toLocaleLowerCase("es");
+    if (!labels.has(key)) labels.set(key, clean);
+  });
+  return Array.from(labels.values());
+}
+
+function goalCompletion(goal: PlanGoal, tasks: PlanTask[]) {
+  const linked = tasks.filter((task) => task.goalId === goal.id);
+  if (!linked.length) return { complete: goal.status === "done", progress: null as number | null };
+  const done = linked.filter((task) => task.status === "done").length;
+  return { complete: done === linked.length, progress: Math.round(done / linked.length * 100) };
+}
+
+function streakStats(dateValues: string[], today: string) {
+  const dates = Array.from(new Set(dateValues.filter(Boolean))).sort();
+  if (!dates.length) return { current: 0, best: 0 };
+  let best = 1;
+  let run = 1;
+  for (let index = 1; index < dates.length; index += 1) {
+    if (dates[index] === addDays(dates[index - 1], 1)) run += 1;
+    else run = 1;
+    best = Math.max(best, run);
+  }
+  const set = new Set(dates);
+  let anchor = set.has(today) ? today : addDays(today, -1);
+  let current = 0;
+  while (set.has(anchor)) { current += 1; anchor = addDays(anchor, -1); }
+  return { current, best };
+}
+
+function average(values: Array<number | null | undefined>) {
+  const present = values.filter((value): value is number => value != null && Number.isFinite(value));
+  return present.length ? present.reduce((sum, value) => sum + value, 0) / present.length : null;
+}
+
+function buildMetricInsights(data: LifeData) {
+  const byDate = new Map(data.metrics.map((metric) => [metric.date, metric]));
+  const nextDayPairs = data.metrics.flatMap((metric) => {
+    if (metric.sleepHours == null) return [];
+    const next = byDate.get(addDays(metric.date, 1));
+    return next && (next.energy != null || next.mood != null) ? [{ sleep: metric.sleepHours, energy: next.energy, mood: next.mood }] : [];
+  });
+  const rested = nextDayPairs.filter((pair) => pair.sleep >= 7);
+  const short = nextDayPairs.filter((pair) => pair.sleep < 7);
+  const restedEnergy = average(rested.map((pair) => pair.energy));
+  const shortEnergy = average(short.map((pair) => pair.energy));
+  const restedMood = average(rested.map((pair) => pair.mood));
+  const shortMood = average(short.map((pair) => pair.mood));
+
+  const screenPairs = data.metrics.filter((metric) => metric.screenTimeHours != null && metric.energy != null);
+  const sortedScreen = screenPairs.map((metric) => metric.screenTimeHours as number).sort((a, b) => a - b);
+  const screenMedian = sortedScreen.length ? sortedScreen[Math.floor(sortedScreen.length / 2)] : null;
+  const lowScreen = screenMedian == null ? [] : screenPairs.filter((metric) => (metric.screenTimeHours as number) <= screenMedian);
+  const highScreen = screenMedian == null ? [] : screenPairs.filter((metric) => (metric.screenTimeHours as number) > screenMedian);
+
+  const movementHabits = data.habits.filter((habit) => /caminar|movimiento|entrenamiento|salud física|ejercicio/i.test(`${habit.name} ${habit.category}`));
+  const movementDates = new Set(data.habitLogs.filter((log) => log.done && movementHabits.some((habit) => habit.id === log.habitId)).map((log) => log.date));
+  const moodRecords = data.metrics.filter((metric) => metric.mood != null);
+  const movementMood = moodRecords.filter((metric) => movementDates.has(metric.date));
+  const noMovementMood = moodRecords.filter((metric) => !movementDates.has(metric.date));
+
+  const enoughSleep = rested.length >= 2 && short.length >= 2 && (restedEnergy != null || restedMood != null) && (shortEnergy != null || shortMood != null);
+  const enoughScreen = lowScreen.length >= 2 && highScreen.length >= 2;
+  const enoughMovement = movementMood.length >= 2 && noMovementMood.length >= 2;
+  return [
+    { title: "Sueño y día siguiente", color: "lilac", icon: <Moon size={16} />, text: enoughSleep ? `Tras dormir 7 h o más, tu energía media del día siguiente es ${formatDecimal(restedEnergy)} vs ${formatDecimal(shortEnergy)}; el ánimo es ${formatDecimal(restedMood)} vs ${formatDecimal(shortMood)}.` : "Necesitamos al menos 2 noches en cada grupo (7 h o más / menos de 7 h) con registro al día siguiente.", sample: `${nextDayPairs.length} pares de días comparables` },
+    { title: "Pantalla y energía", color: "rose", icon: <Smartphone size={16} />, text: enoughScreen ? `Con hasta ${formatNumber(screenMedian)} h de pantalla, tu energía media es ${formatDecimal(average(lowScreen.map((metric) => metric.energy)))} vs ${formatDecimal(average(highScreen.map((metric) => metric.energy)))} en días de mayor uso.` : "Registra pantalla y energía en más días para comparar jornadas de menor y mayor uso.", sample: `${screenPairs.length} días comparables` },
+    { title: "Movimiento y ánimo", color: "mint", icon: <Footprints size={16} />, text: enoughMovement ? `Los días con movimiento registrado, tu ánimo medio es ${formatDecimal(average(movementMood.map((metric) => metric.mood)))} vs ${formatDecimal(average(noMovementMood.map((metric) => metric.mood)))} el resto de los días.` : "Completa un hábito de movimiento y registra el ánimo en más días para detectar un patrón.", sample: `${movementMood.length} días con movimiento · ${noMovementMood.length} sin registro` },
+  ];
+}
+
+function habitCategoryIcon(category: string, size: number) {
+  if (/física|movimiento|deporte|ejercicio/i.test(category)) return <Dumbbell size={size} />;
+  if (/mental|bienestar/i.test(category)) return <Leaf size={size} />;
+  if (/crecimiento|aprendizaje/i.test(category)) return <BookOpen size={size} />;
+  if (/relaciones|familia|social/i.test(category)) return <Users size={size} />;
+  return <Sparkles size={size} />;
+}
+
+function truncateAtWord(value: string, limit: number) {
+  const clean = value.trim().replace(/\s+/g, " ");
+  if (clean.length <= limit) return clean;
+  const candidate = clean.slice(0, limit + 1);
+  const boundary = candidate.lastIndexOf(" ");
+  return `${candidate.slice(0, boundary > limit * .55 ? boundary : limit).trimEnd()}…`;
+}
+
 function madridDateKey(date: Date) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(date); }
 function addDays(date: string, amount: number) { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + amount); return value.toISOString().slice(0, 10); }
 function formatLongDate(date: string) { return new Date(`${date}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }); }
@@ -1406,8 +1636,10 @@ function formatShortDate(date: string) { return new Date(`${date}T12:00:00Z`).to
 function formatTinyDate(date: string) { return new Date(`${date}T12:00:00Z`).toLocaleDateString("es-ES", { day: "2-digit", month: "short", timeZone: "UTC" }).replace(".", "").toUpperCase(); }
 function shortDay(date: string) { return new Date(`${date}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "short", timeZone: "UTC" }).replace(".", "").toUpperCase(); }
 function lastDays(today: string, count: number) { const base = new Date(`${today}T12:00:00Z`); return Array.from({ length: count }, (_, index) => { const date = new Date(base); date.setUTCDate(base.getUTCDate() - (count - 1 - index)); return date.toISOString().slice(0, 10); }); }
-function moodEmoji(value: number | null | undefined) { return ["😞", "😕", "😐", "🙂", "😊"][Math.max(1, Math.min(5, value ?? 3)) - 1]; }
-function formatNumber(value: number | null | undefined) { return value == null ? "—" : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value); }
+function moodEmoji(value: number | null | undefined) { return value == null ? "" : ["😞", "😕", "😐", "🙂", "😊"][Math.max(1, Math.min(5, value)) - 1]; }
+function formatNumber(value: number | null | undefined) { return value == null ? missingValue : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value); }
+function formatDecimal(value: number | null | undefined) { return value == null ? missingValue : new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value); }
+function metricValue(value: number | null | undefined, unit: string) { return value == null ? missingValue : `${formatNumber(value)} ${unit}`; }
 function nullableNumber(value: unknown) { return value === "" || value == null ? null : Number(value); }
 function formatDuration(value: number | null | undefined) {
   if (value == null || Number.isNaN(Number(value))) return "—";
@@ -1423,7 +1655,7 @@ function formatDurationCompact(value: number | null | undefined) {
 function formatTimer(seconds: number) { return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
 function formatMinutes(minutes: number) { const rounded = Math.max(0, Math.round(minutes)); const hours = Math.floor(rounded / 60); const rest = rounded % 60; return hours ? `${hours} h${rest ? ` ${rest} min` : ""}` : `${rest} min`; }
 function bulletLabel(type: string) { return type === "task" ? "Tarea" : type === "event" ? "Evento" : "Nota"; }
-function weightChange(latest?: Metric, previous?: Metric) { if (latest?.weight == null || previous?.weight == null) return latest ? formatShortDate(latest.date) : "Sin registros"; const change = latest.weight - previous.weight; return `${change > 0 ? "+" : ""}${formatNumber(change)} kg desde el anterior`; }
+function weightChange(latest?: Metric, previous?: Metric) { if (latest?.weight == null || previous?.weight == null) return latest?.weight != null ? formatShortDate(latest.date) : missingValue; const change = latest.weight - previous.weight; return `${change > 0 ? "+" : ""}${formatNumber(change)} kg desde el anterior`; }
 function daysBetween(start: string, end: string) { return Math.max(0, Math.floor((new Date(`${end}T12:00:00Z`).getTime() - new Date(`${start}T12:00:00Z`).getTime()) / 86_400_000)); }
 function monthLabel(month: string) { return new Date(`${month}-15T12:00:00Z`).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).replace(/^./, (letter) => letter.toUpperCase()); }
 function quarterKey(month: string) { const [year, monthNumber] = month.split("-").map(Number); return `${year}-Q${Math.floor((monthNumber - 1) / 3) + 1}`; }

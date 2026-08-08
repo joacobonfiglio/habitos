@@ -1,4 +1,4 @@
-const CACHE = "lifeos-shell-v1";
+const CACHE = "lifeos-shell-v4";
 const SHELL = ["/", "/favicon.svg", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
