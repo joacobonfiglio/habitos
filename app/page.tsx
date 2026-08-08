@@ -56,7 +56,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type View = "today" | "planning" | "focus" | "habits" | "metrics" | "journal" | "gratitude" | "mindmap" | "programs" | "projects" | "bucket" | "more";
+type View = "today" | "focus" | "habits" | "metrics" | "journal" | "gratitude" | "mindmap" | "programs" | "projects" | "bucket" | "more";
 type Resource = "habit" | "habitLog" | "metric" | "journal" | "bullet" | "gratitude" | "mindNode" | "program" | "programLog" | "project" | "projectTask" | "planGoal" | "planTask" | "focusSession" | "note" | "bucketItem";
 type Modal =
   | { kind: "quick" }
@@ -170,14 +170,13 @@ const starterData: LifeData = {
 
 const navItems = [
   { id: "today" as View, label: "Hoy", icon: Home },
-  { id: "planning" as View, label: "Planificación", icon: CalendarDays },
   { id: "focus" as View, label: "Enfoque y tiempo", icon: Timer },
   { id: "habits" as View, label: "Hábitos", icon: Flame },
   { id: "metrics" as View, label: "Métricas", icon: BarChart3 },
   { id: "journal" as View, label: "Journal", icon: PenLine },
   { id: "gratitude" as View, label: "Agradecimientos", icon: Gift },
   { id: "mindmap" as View, label: "Mapa vital", icon: Network },
-  { id: "projects" as View, label: "Proyectos y notas", icon: FolderKanban },
+  { id: "projects" as View, label: "Proyectos, plan y notas", icon: FolderKanban },
   { id: "bucket" as View, label: "Bucket list", icon: Star },
   { id: "programs" as View, label: "Experimentos y retos", icon: Rocket },
 ];
@@ -403,11 +402,11 @@ export default function HomePage() {
   }, [save]);
 
   const titles: Record<View, string> = {
-    today: "Tu centro de mando", planning: "Tu hoja de ruta", habits: "Tus hábitos",
+    today: "Tu centro de mando", habits: "Tus hábitos",
     focus: "Tu tiempo de enfoque",
     metrics: "Tu salud en datos", journal: "Un espacio para pensar",
     gratitude: "Lo bueno que te rodea", mindmap: "Tu mapa vital",
-    programs: "Laboratorio personal", projects: "Proyectos y notas",
+    programs: "Laboratorio personal", projects: "Proyectos, plan y notas",
     bucket: "Cosas que quiero vivir", more: "Tu LifeOS",
   };
 
@@ -448,7 +447,6 @@ export default function HomePage() {
         {loading ? <LoadingState /> : (
           <>
             {view === "today" && <TodayView data={data} today={today} onToggleHabit={toggleHabit} onToggleBullet={toggleBullet} onNavigate={navigate} onOpen={setModal} />}
-            {view === "planning" && <PlanningView data={data} today={today} onOpen={setModal} onSave={save} onDelete={remove} />}
             {view === "focus" && <FocusView data={data} today={today} onSave={save} onDelete={(id) => remove("focusSession", id)} />}
             {view === "habits" && <HabitsView data={data} today={today} onToggle={toggleHabit} onOpen={setModal} onDelete={(id) => remove("habit", id)} />}
             {view === "metrics" && <MetricsView data={data} onOpen={setModal} onDelete={(id) => remove("metric", id)} />}
@@ -466,9 +464,8 @@ export default function HomePage() {
       <nav className="mobile-nav" aria-label="Navegación móvil">
         {[
           { id: "today" as View, label: "Hoy", icon: Home },
-          { id: "planning" as View, label: "Plan", icon: CalendarDays },
           { id: "focus" as View, label: "Enfoque", icon: Timer },
-          { id: "projects" as View, label: "Proyectos", icon: FolderKanban },
+          { id: "projects" as View, label: "Trabajo", icon: FolderKanban },
           { id: "more" as View, label: "Más", icon: MoreHorizontal },
         ].map(({ id, label, icon: Icon }) => <button key={id} className={view === id ? "active" : ""} onClick={() => navigate(id)}><Icon size={20} /><span>{label}</span></button>)}
       </nav>
@@ -556,10 +553,10 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
             <div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14} /> PRÓXIMOS 7 DÍAS</span><h3>Lo que viene esta semana</h3></div><button className="add-inline top" onClick={() => onOpen({ kind: "planTask", goals: data.planGoals, projects: data.projects, defaultPeriod: today.slice(0, 7) })}><Plus size={15} /> Tarea</button></div>
             <div className="upcoming-plan-list">{upcomingPlan.map((item) => {
               const project = data.projects.find((entry) => entry.id === item.projectId);
-              return <button key={`${item.type}-${item.id}`} onClick={() => onNavigate(item.type === "Sprint" ? "projects" : "planning")}><span className={`upcoming-date ${item.date === today ? "today" : ""}`}><strong>{item.date === today ? "HOY" : shortDay(item.date)}</strong><small>{item.date.slice(-2)}</small></span><span><strong>{item.title}</strong><small>{item.type}{project ? ` · ${project.title}` : ""}</small></span><ArrowRight size={15} /></button>;
+              return <button key={`${item.type}-${item.id}`} onClick={() => onNavigate("projects")}><span className={`upcoming-date ${item.date === today ? "today" : ""}`}><strong>{item.date === today ? "HOY" : shortDay(item.date)}</strong><small>{item.date.slice(-2)}</small></span><span><strong>{item.title}</strong><small>{item.type}{project ? ` · ${project.title}` : ""}</small></span><ArrowRight size={15} /></button>;
             })}</div>
             {!upcomingPlan.length && <EmptyState text="No hay tareas de planificación, sprint ni objetivos durante los próximos siete días." action="Crear una tarea" onClick={() => onOpen({ kind: "planTask", goals: data.planGoals, projects: data.projects, defaultPeriod: today.slice(0, 7) })} />}
-            {!!upcomingPlan.length && <button className="text-button upcoming-all" onClick={() => onNavigate("planning")}>Abrir planificación <ArrowRight size={14} /></button>}
+            {!!upcomingPlan.length && <button className="text-button upcoming-all" onClick={() => onNavigate("projects")}>Abrir espacio de trabajo <ArrowRight size={14} /></button>}
           </section>
         </div>
         <div className="right-column">
@@ -1028,10 +1025,10 @@ function ProgramsView({ data, today, onOpen, onDelete }: {
   </div>;
 }
 
-function PlanningView({ data, today, onOpen, onSave, onDelete }: {
+function PlanningView({ data, today, onOpen, onSave, onDelete, embedded = false }: {
   data: LifeData; today: string; onOpen: (modal: Modal) => void;
   onSave: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
-  onDelete: (resource: Resource, id: string) => void;
+  onDelete: (resource: Resource, id: string) => void; embedded?: boolean;
 }) {
   const [scope, setScope] = useState<PlanGoal["scope"]>("month");
   const [selectedMonth, setSelectedMonth] = useState(today.slice(0, 7));
@@ -1060,8 +1057,8 @@ function PlanningView({ data, today, onOpen, onSave, onDelete }: {
     await onSave("planGoal", { ...goal, status }, status === "done" ? "Objetivo completado" : "Objetivo reabierto");
   }
 
-  return <div className="page-content subpage planning-page">
-    <section className="section-intro"><div><span className="section-label dark"><CalendarDays size={14} /> PLANIFICACIÓN PERSONAL</span><h2>Decide qué importa antes de empezar</h2><p>Define objetivos y acciones del mes o del trimestre, relaciónalos con tus proyectos y mantén todo bajo control.</p></div><div className="intro-actions"><button className="outline-compact" onClick={() => onOpen({ kind: "planTask", goals: data.planGoals, projects: data.projects, defaultPeriod: selectedMonth })}><ListTodo size={16} /> Nueva tarea</button><button className="primary-button" onClick={() => onOpen({ kind: "planGoal", projects: data.projects, defaultScope: scope, defaultPeriod: period })}><Plus size={17} /> Nuevo objetivo</button></div></section>
+  return <div className={embedded ? "planning-page integrated-planning" : "page-content subpage planning-page"}>
+    <section className={embedded ? "workspace-subheader" : "section-intro"}><div><span className="section-label dark"><CalendarDays size={14} /> PLANIFICACIÓN PERSONAL</span>{embedded ? <h3>Del objetivo trimestral a la acción concreta</h3> : <h2>Decide qué importa antes de empezar</h2>}<p>Define objetivos y acciones del mes o del trimestre, relaciónalos con tus proyectos y mantén todo bajo control.</p></div><div className="intro-actions"><button className="outline-compact" onClick={() => onOpen({ kind: "planTask", goals: data.planGoals, projects: data.projects, defaultPeriod: selectedMonth })}><ListTodo size={16} /> Nueva tarea</button><button className="primary-button" onClick={() => onOpen({ kind: "planGoal", projects: data.projects, defaultScope: scope, defaultPeriod: period })}><Plus size={17} /> Nuevo objetivo</button></div></section>
     <section className="planning-toolbar">
       <div className="segmented planning-tabs"><button className={scope === "month" ? "active" : ""} onClick={() => setScope("month")}>Mes</button><button className={scope === "quarter" ? "active" : ""} onClick={() => setScope("quarter")}>Trimestre</button></div>
       <div className="period-switcher"><button aria-label="Periodo anterior" onClick={() => movePeriod(-1)}>←</button><div><span>{scope === "month" ? "PLAN DEL MES" : "PLAN DEL TRIMESTRE"}</span><strong>{scope === "month" ? monthLabel(selectedMonth) : quarterLabel(period)}</strong></div><button aria-label="Periodo siguiente" onClick={() => movePeriod(1)}>→</button></div>
@@ -1112,7 +1109,7 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
   onSave: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
   onDelete: (resource: Resource, id: string) => void;
 }) {
-  const [tab, setTab] = useState<"projects" | "sprint" | "notes">("sprint");
+  const [tab, setTab] = useState<"planning" | "sprint" | "projects" | "notes">("sprint");
   const [selectedId, setSelectedId] = useState<string | null>(data.projects[0]?.id ?? null);
   const effectiveSelectedId = data.projects.some((project) => project.id === selectedId) ? selectedId : (data.projects[0]?.id ?? null);
   const selected = data.projects.find((project) => project.id === effectiveSelectedId) ?? null;
@@ -1124,8 +1121,8 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
   }
 
   return <div className="page-content subpage">
-    <section className="section-intro"><div><span className="section-label dark"><FolderKanban size={14} /> CENTRO DE PROYECTOS</span><h2>De la idea a la acción</h2><p>Organiza negocios, proyectos personales, tareas y todo lo que vas aprendiendo durante el proceso.</p></div><div className="intro-actions"><button className="outline-compact" onClick={() => onOpen({ kind: "note", projects: data.projects })}><StickyNote size={16} /> Nueva nota</button><button className="primary-button" onClick={() => onOpen({ kind: "project" })}><Plus size={17} /> Nuevo proyecto</button></div></section>
-    <div className="segmented program-tabs project-tabs"><button className={tab === "sprint" ? "active" : ""} onClick={() => setTab("sprint")}><CalendarDays size={14} /> Sprint semanal</button><button className={tab === "projects" ? "active" : ""} onClick={() => setTab("projects")}><FolderKanban size={14} /> Proyectos</button><button className={tab === "notes" ? "active" : ""} onClick={() => setTab("notes")}><StickyNote size={14} /> Notas</button></div>
+    <section className="section-intro"><div><span className="section-label dark"><FolderKanban size={14} /> ESPACIO DE TRABAJO</span><h2>De la visión a lo que haces hoy</h2><p>Planifica objetivos, conviértelos en sprints y tareas, organiza tus proyectos y conserva las notas dentro del mismo sistema.</p></div><div className="intro-actions"><button className="outline-compact" onClick={() => onOpen({ kind: "note", projects: data.projects })}><StickyNote size={16} /> Nueva nota</button><button className="primary-button" onClick={() => onOpen({ kind: "project" })}><Plus size={17} /> Nuevo proyecto</button></div></section>
+    <div className="segmented program-tabs project-tabs"><button className={tab === "sprint" ? "active" : ""} onClick={() => setTab("sprint")}><CalendarDays size={14} /> Agenda semanal</button><button className={tab === "planning" ? "active" : ""} onClick={() => setTab("planning")}><Target size={14} /> Planificación</button><button className={tab === "projects" ? "active" : ""} onClick={() => setTab("projects")}><FolderKanban size={14} /> Proyectos</button><button className={tab === "notes" ? "active" : ""} onClick={() => setTab("notes")}><StickyNote size={14} /> Notas</button></div>
     {tab === "projects" ? <>
       <div className="project-library">
         {data.projects.map((project) => {
@@ -1152,7 +1149,7 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
         <div className="project-notes-strip"><div className="card-heading"><div><span className="section-label dark"><StickyNote size={14} /> BITÁCORA</span><h3>Notas del proyecto</h3></div><button className="add-inline top" onClick={() => onOpen({ kind: "note", projects: data.projects, projectId: selected.id })}><Plus size={14} /> Añadir</button></div><div className="notes-mini-grid">{projectNotes.map((note) => <button key={note.id} onClick={() => onOpen({ kind: "note", projects: data.projects, record: note })}><span>{note.category}</span><strong>{note.title}</strong><small>{note.content.slice(0, 100) || "Sin contenido"}</small></button>)}</div>{!projectNotes.length && <EmptyState text="Registra decisiones, ideas y aprendizajes de este proyecto." />}</div>
       </section>}
       {!data.projects.length && <section className="card"><EmptyState text="Todavía no tienes proyectos. Crea uno para convertir una idea en tareas concretas." action="Crear proyecto" onClick={() => onOpen({ kind: "project" })} /></section>}
-    </> : tab === "sprint" ? <SprintWorkspace data={data} today={today} defaultProject={selected} onOpen={onOpen} onSave={onSave} onDelete={(id) => onDelete("projectTask", id)} /> : <NotesLibrary notes={data.notes} projects={data.projects} onOpen={onOpen} onDelete={(id) => onDelete("note", id)} />}
+    </> : tab === "sprint" ? <SprintWorkspace data={data} today={today} defaultProject={selected} onOpen={onOpen} onSave={onSave} onDelete={(id) => onDelete("projectTask", id)} /> : tab === "planning" ? <PlanningView data={data} today={today} embedded onOpen={onOpen} onSave={onSave} onDelete={onDelete} /> : <NotesLibrary notes={data.notes} projects={data.projects} onOpen={onOpen} onDelete={(id) => onDelete("note", id)} />}
   </div>;
 }
 
@@ -1224,13 +1221,12 @@ function BucketListView({ items, today, onOpen, onSave, onDelete }: {
 
 function MoreView({ data, onNavigate, onDownload, onImport, cloudUser, cloudStatus, onLogin, onLogout, onPush, onPull }: { data: LifeData; onNavigate: (view: View) => void; onDownload: () => void; onImport: (file: File) => void; cloudUser: string | null; cloudStatus: string; onLogin: () => void; onLogout: () => void; onPush: () => void; onPull: () => void }) {
   const modules = [
-    { title: "Planificación", text: `${data.planGoals.length} objetivos · ${data.planTasks.length} tareas`, icon: CalendarDays, color: "blue", view: "planning" as View },
     { title: "Enfoque y tiempo", text: `${data.focusSessions.length} sesiones registradas`, icon: Timer, color: "lilac", view: "focus" as View },
     { title: "Hábitos", text: `${data.habits.length} configurados`, icon: Flame, color: "lilac", view: "habits" as View },
     { title: "Métricas", text: `${data.metrics.length} registros`, icon: BarChart3, color: "mint", view: "metrics" as View },
     { title: "Experimentos y retos", text: `${data.programs.length} activos o guardados`, icon: Rocket, color: "sand", view: "programs" as View },
     { title: "Bullet journal", text: `${data.bullets.length} elementos`, icon: ListTodo, color: "rose", view: "journal" as View },
-    { title: "Proyectos y notas", text: `${data.projects.length} proyectos · ${data.notes.length} notas`, icon: FolderKanban, color: "blue", view: "projects" as View },
+    { title: "Proyectos, plan y notas", text: `${data.projects.length} proyectos · ${data.planGoals.length} objetivos · ${data.notes.length} notas`, icon: FolderKanban, color: "blue", view: "projects" as View },
     { title: "Bucket list", text: `${data.bucketItems.filter((item) => item.status === "completed").length}/${data.bucketItems.length} sueños cumplidos`, icon: Star, color: "rose", view: "bucket" as View },
     { title: "Journal", text: `${data.journals.length} entradas`, icon: BookOpen, color: "gray", view: "journal" as View },
     { title: "Agradecimientos", text: `${data.gratitudes.length} momentos guardados`, icon: Gift, color: "sand", view: "gratitude" as View },
@@ -1270,7 +1266,7 @@ function RecordModal({ modal, data, today, close, save, navigate, open }: {
       <button onClick={() => open({ kind: "metric" })}><Heart size={19} /><span><strong>Check-in rápido</strong><small>Peso, ánimo, energía, sueño y pantalla</small></span><ArrowRight size={16} /></button>
       <button onClick={() => open({ kind: "quickFocus" })}><Timer size={19} /><span><strong>Registrar tiempo</strong><small>Añade una sesión manual en pocos pasos</small></span><ArrowRight size={16} /></button>
       <button onClick={() => { navigate("focus"); close(); }}><Play size={19} /><span><strong>Iniciar Pomodoro</strong><small>Comienza un bloque de enfoque de 45 minutos</small></span><ArrowRight size={16} /></button>
-      <button onClick={() => { navigate("planning"); close(); }}><CalendarDays size={19} /><span><strong>Tarea u objetivo del plan</strong><small>Organiza las acciones y prioridades del periodo</small></span><ArrowRight size={16} /></button>
+      <button onClick={() => open({ kind: "planTask", goals: data.planGoals, projects: data.projects, defaultPeriod: today.slice(0, 7) })}><CalendarDays size={19} /><span><strong>Nueva tarea del plan</strong><small>Vincúlala a un objetivo, periodo y proyecto</small></span><ArrowRight size={16} /></button>
       <button onClick={() => { navigate("journal"); close(); }}><PenLine size={19} /><span><strong>Journal y bullet list</strong><small>Escribe, anota una tarea o registra un evento</small></span><ArrowRight size={16} /></button>
       <button onClick={() => { navigate("habits"); close(); }}><CheckCircle2 size={19} /><span><strong>Completar hábito</strong><small>Actualiza tu registro diario</small></span><ArrowRight size={16} /></button>
       <button onClick={() => open({ kind: "gratitude" })}><Gift size={19} /><span><strong>Agradecimiento</strong><small>Guarda algo bueno de este día</small></span><ArrowRight size={16} /></button>

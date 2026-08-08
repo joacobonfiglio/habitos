@@ -762,8 +762,11 @@ input, select { font: inherit; color: inherit; }
 .goal-complete { width: 100%; min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; border: 1px solid #ddd9d0; border-radius: 9px; color: #85818f; background: #fff; font-size: 8.5px; cursor: pointer; }.goal-complete.done { color: #5d8377; border-color: #bfd2cb; background: #f5faf7; }
 
 .project-library { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; margin-bottom: 18px; }
-.project-tabs { width: max-content; max-width: 100%; }
+.project-tabs { width: max-content; max-width: 100%; display: flex; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #c8c3d1 transparent; }
 .project-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.integrated-planning { min-width: 0; }
+.workspace-subheader { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 4px 0 18px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(135deg,#fdfcf8,#f2eff7); }
+.workspace-subheader h3 { margin: 7px 0 5px; font-family: Georgia,serif; font-size: 24px; font-weight: 500; letter-spacing: -.025em; }.workspace-subheader p { max-width: 650px; margin: 0; color: #8c8b94; font-size: 9.5px; line-height: 1.55; }
 .project-tile, .new-project-tile { min-height: 172px; border: 1px solid var(--line); border-radius: 17px; background: var(--card); }
 .project-tile { padding: 16px; box-shadow: 0 6px 20px rgba(35,38,55,.025); transition: .18s ease; }
 .project-tile.selected { border-color: #a49cc7; box-shadow: 0 9px 25px rgba(92,84,135,.09); }
@@ -931,6 +934,9 @@ input, select { font: inherit; color: inherit; }
   .standalone-task > .row-actions { grid-column: 3; grid-row: 1 / span 2; }
   .quarter-month-grid { grid-template-columns: 1fr; }
   .project-workspace { padding: 17px; }
+  .project-tabs { width: 100%; }
+  .project-tabs button { min-width: max-content; }
+  .workspace-subheader { align-items: flex-start; flex-direction: column; padding: 17px; }.workspace-subheader .intro-actions { width: 100%; }
   .sprint-workspace { padding: 17px; }
   .sprint-toolbar { flex-direction: column; }.sprint-actions { width: 100%; justify-content: flex-start; }.sprint-actions .primary-button { margin-left: auto; }
   .sprint-summary { grid-template-columns: 1fr; }.sprint-summary article { min-height: 70px; }
