@@ -38,11 +38,18 @@ button { color: inherit; }
   background-size: 53px 53px; background-position: 13px 17px;
 }
 .sidebar > * { position: relative; z-index: 1; }
-.brand { display: flex; align-items: center; gap: 11px; padding: 0 8px 28px; }
+.brand { display: flex; flex: 0 0 auto; align-items: center; gap: 11px; padding: 0 8px 28px; }
 .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; background: rgba(255,255,255,.08); color: #d5cfee; }
 .brand strong { display: block; font-family: Georgia, "Times New Roman", serif; font-size: 20px; letter-spacing: -.02em; }
 .brand span { display: block; color: #9d9fae; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin-top: 2px; }
-.side-nav { display: flex; flex-direction: column; gap: 5px; }
+.side-nav {
+  min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; gap: 5px;
+  padding-right: 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+  scrollbar-width: thin; scrollbar-color: rgba(213,207,238,.35) transparent;
+}
+.side-nav::-webkit-scrollbar { width: 5px; }
+.side-nav::-webkit-scrollbar-track { background: transparent; }
+.side-nav::-webkit-scrollbar-thumb { border-radius: 99px; background: rgba(213,207,238,.28); }
 .nav-eyebrow { margin: 8px 12px 7px; color: #777a8c; font-size: 9px; font-weight: 700; letter-spacing: .17em; text-transform: uppercase; }
 .nav-eyebrow-spaced { margin-top: 25px; }
 .side-nav button, .sidebar-bottom > button {
@@ -50,7 +57,7 @@ button { color: inherit; }
 }
 .side-nav button:hover, .sidebar-bottom > button:hover { color: #fff; background: rgba(255,255,255,.05); }
 .side-nav button.active { color: #fff; background: linear-gradient(90deg, rgba(132,121,187,.26), rgba(132,121,187,.1)); box-shadow: inset 2px 0 #aaa0d5; }
-.sidebar-bottom { margin-top: auto; }
+.sidebar-bottom { flex: 0 0 auto; margin-top: 8px; }
 .profile { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-top: 12px; padding: 14px 8px 0; border-top: 1px solid rgba(255,255,255,.08); }
 .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: #d9d3c7; color: #373446; font-size: 11px; font-weight: 750; }
 .profile strong, .profile span { display: block; }
@@ -315,6 +322,15 @@ button { color: inherit; }
   .calendar-layout, .journal-layout { grid-template-columns: 1fr; }
   .agenda-summary { display: none; }
   .module-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-height: 760px) and (min-width: 761px) {
+  .sidebar { padding-top: 18px; padding-bottom: 14px; }
+  .sidebar > .brand { padding-bottom: 14px; }
+  .side-nav { gap: 3px; }
+  .side-nav button { height: 40px; }
+  .nav-eyebrow-spaced { margin-top: 14px; }
+  .profile { margin-top: 7px; padding-top: 10px; }
 }
 
 @media (max-width: 760px) {
