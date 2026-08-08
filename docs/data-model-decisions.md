@@ -40,6 +40,12 @@ Un objetivo con cero tareas muestra `Sin tareas vinculadas` y `—`; nunca 0 % n
 
 La migración es progresiva y no requiere modificar la tabla de Supabase: las tareas antiguas se normalizan al leer el snapshot con energía media, estimación nula y sin semana/día. Se muestran en `Sin planificar` hasta que el usuario las incorpore a un sprint. El estado kanban sigue siendo la única fuente de verdad para saber si una tarea está por hacer, en curso o completada.
 
+## Módulo único de trabajo
+
+Planificación, agenda semanal, proyectos y notas se presentan como vistas internas del mismo módulo `Proyectos, plan y notas`. Se elimina `planning` como destino independiente de navegación, pero no se cambia ni duplica ningún dato.
+
+La jerarquía funcional es: objetivo mensual/trimestral (`PlanGoal`) → acciones del periodo (`PlanTask`) → sprint y día (`ProjectTask`) → contexto y aprendizaje (`NoteItem`). Los vínculos existentes mediante `projectId` y `goalId` siguen siendo la fuente de verdad, por lo que esta unificación de interfaz no requiere migración de Supabase.
+
 ## Sesiones multidispositivo
 
 El cierre de sesión de LifeOS usa `signOut({ scope: "local" })`. Así se elimina únicamente la sesión del navegador o PWA actual; cerrar sesión en el móvil no revoca la sesión del ordenador, ni al revés. La opción global no se expone en la interfaz.
