@@ -29,6 +29,21 @@ Cuando existen tareas, el estado y el porcentaje visibles son derivados:
 
 Un objetivo con cero tareas muestra `Sin tareas vinculadas` y `—`; nunca 0 % ni 100 %. No se persiste un porcentaje separado, por lo que no puede quedar desincronizado.
 
+## Sprints y planificación diaria de tareas de proyecto
+
+`ProjectTask` conserva su vínculo obligatorio con `projectId` y añade campos opcionales, guardados dentro del snapshot JSON:
+
+- `sprintWeek`: lunes de la semana del sprint en formato `YYYY-MM-DD`.
+- `scheduledDate`: día concreto de ejecución. Cuando existe, `sprintWeek` se deriva automáticamente de esa fecha.
+- `estimatedMinutes`: estimación entera en minutos; `null` significa que aún no se estimó.
+- `energy`: energía requerida (`low`, `medium` o `high`).
+
+La migración es progresiva y no requiere modificar la tabla de Supabase: las tareas antiguas se normalizan al leer el snapshot con energía media, estimación nula y sin semana/día. Se muestran en `Sin planificar` hasta que el usuario las incorpore a un sprint. El estado kanban sigue siendo la única fuente de verdad para saber si una tarea está por hacer, en curso o completada.
+
+## Sesiones multidispositivo
+
+El cierre de sesión de LifeOS usa `signOut({ scope: "local" })`. Así se elimina únicamente la sesión del navegador o PWA actual; cerrar sesión en el móvil no revoca la sesión del ordenador, ni al revés. La opción global no se expone en la interfaz.
+
 ## Rachas e insights
 
 Las rachas y correlaciones son datos derivados en el cliente; no se añaden campos persistidos. La racha actual admite como ancla hoy o ayer, para no romper una racha durante el día antes del registro. Los insights solo describen asociaciones y muestran el tamaño de la muestra; no hacen afirmaciones causales.
