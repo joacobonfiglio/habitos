@@ -70,7 +70,7 @@ type Modal =
   | { kind: "projectTask"; projects: Project[]; project?: Project; record?: ProjectTask; defaultDate?: string; defaultSprintWeek?: string }
   | { kind: "planGoal"; projects: Project[]; record?: PlanGoal; defaultScope?: PlanGoal["scope"]; defaultPeriod?: string }
   | { kind: "planTask"; goal?: PlanGoal; goals: PlanGoal[]; projects: Project[]; record?: PlanTask; defaultPeriod?: string }
-  | { kind: "note"; projects: Project[]; record?: NoteItem; projectId?: string }
+  | { kind: "note"; projects: Project[]; record?: NoteItem; projectId?: string; sprintWeek?: string }
   | { kind: "bucketItem"; record?: BucketItem }
   | { kind: "gratitude"; record?: Gratitude }
   | { kind: "mindNode"; nodes: MindNode[]; projects: Project[]; record?: MindNode; parentId?: string }
@@ -106,8 +106,8 @@ type ProjectTask = {
   estimatedMinutes: number | null; energy: "low" | "medium" | "high";
 };
 type PlanGoal = {
-  id: string; title: string; description: string; scope: "month" | "quarter"; period: string;
-  projectId: string | null; priority: string; status: "todo" | "doing" | "done"; targetDate: string | null;
+  id: string; title: string; description: string; scope: "week" | "month" | "quarter" | "semester" | "year"; period: string;
+  projectId: string | null; parentGoalId?: string | null; priority: string; status: "todo" | "doing" | "done"; targetDate: string | null;
 };
 type PlanTask = {
   id: string; goalId: string | null; projectId: string | null; title: string; period: string; priority: string;
@@ -119,6 +119,7 @@ type FocusSession = {
 };
 type NoteItem = {
   id: string; projectId: string | null; title: string; content: string; category: string; pinned: boolean;
+  sprintWeek?: string | null;
 };
 type BucketItem = {
   id: string; title: string; description: string; category: string; status: "pending" | "inProgress" | "completed";
@@ -176,7 +177,7 @@ const navItems = [
   { id: "journal" as View, label: "Journal", icon: PenLine },
   { id: "gratitude" as View, label: "Agradecimientos", icon: Gift },
   { id: "mindmap" as View, label: "Mapa vital", icon: Network },
-  { id: "projects" as View, label: "Proyectos, plan y notas", icon: FolderKanban },
+  { id: "projects" as View, label: "Plan personal", icon: FolderKanban },
   { id: "bucket" as View, label: "Bucket list", icon: Star },
   { id: "programs" as View, label: "Experimentos y retos", icon: Rocket },
 ];
@@ -406,7 +407,7 @@ export default function HomePage() {
     focus: "Tu tiempo de enfoque",
     metrics: "Tu salud en datos", journal: "Un espacio para pensar",
     gratitude: "Lo bueno que te rodea", mindmap: "Tu mapa vital",
-    programs: "Laboratorio personal", projects: "Proyectos, plan y notas",
+    programs: "Laboratorio personal", projects: "Plan personal",
     bucket: "Cosas que quiero vivir", more: "Tu LifeOS",
   };
 
@@ -1166,6 +1167,8 @@ function SprintWorkspace({ data, today, defaultProject, onOpen, onSave, onDelete
   const backlog = [...weekTasks.filter((task) => !task.scheduledDate), ...unplanned.filter((task) => !weekTasks.some((weekTask) => weekTask.id === task.id))];
   const completed = weekTasks.filter((task) => task.status === "done").length;
   const estimated = weekTasks.reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0);
+  const weeklyNotes = data.notes.filter((note) => note.sprintWeek === weekStart);
+  const activeGoals = data.planGoals.filter((goal) => goal.status !== "done").sort((a, b) => ({ year: 0, semester: 1, quarter: 2, month: 3, week: 4 }[a.scope] ?? 5) - ({ year: 0, semester: 1, quarter: 2, month: 3, week: 4 }[b.scope] ?? 5)).slice(0, 4);
   const openTask = (record?: ProjectTask, defaultDate?: string) => onOpen({ kind: "projectTask", projects: data.projects, project: data.projects.find((project) => project.id === record?.projectId) ?? defaultProject ?? data.projects[0], record, defaultDate, defaultSprintWeek: weekStart });
   async function advance(task: ProjectTask) {
     const status: ProjectTask["status"] = task.status === "todo" ? "doing" : task.status === "doing" ? "done" : "todo";
@@ -1182,6 +1185,7 @@ function SprintWorkspace({ data, today, defaultProject, onOpen, onSave, onDelete
   return <section className="sprint-workspace">
     <div className="sprint-toolbar"><div><span className="section-label dark"><CalendarDays size={14} /> SPRINT SEMANAL</span><h3>{formatShortDate(weekStart)} — {formatShortDate(weekEnd)}</h3><p>Distribuye acciones por día según el tiempo, la energía disponible y la prioridad.</p></div><div className="sprint-actions"><button className="icon-button" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Semana anterior">←</button><button className="outline-compact" onClick={() => setWeekStart(startOfWeek(today))}>Esta semana</button><button className="icon-button" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Semana siguiente">→</button><button className="primary-button" disabled={!data.projects.length} onClick={() => openTask()}><Plus size={15} /> Nueva tarea</button></div></div>
     <div className="sprint-summary"><article><small>TAREAS DEL SPRINT</small><strong>{weekTasks.length}</strong><span>{completed} completadas</span></article><article><small>TIEMPO ESTIMADO</small><strong>{formatMinutes(estimated)}</strong><span>{weekTasks.filter((task) => task.estimatedMinutes == null).length} sin estimar</span></article><article><small>AVANCE</small><strong>{weekTasks.length ? `${Math.round(completed / weekTasks.length * 100)}%` : missingValue}</strong><span>{weekTasks.length ? `${weekTasks.length - completed} pendientes` : "Aún sin tareas"}</span></article></div>
+    <section className="sprint-direction"><div><span className="section-label dark"><Target size={14} /> DIRECCIÓN Y CONTEXTO</span><h3>Lo que esta semana está construyendo</h3><div className="sprint-goal-list">{activeGoals.map((goal) => { const parent = data.planGoals.find((item) => item.id === goal.parentGoalId); const progress = goalCompletion(goal, data.planTasks).progress; return <button key={goal.id} onClick={() => onOpen({ kind: "planGoal", projects: data.projects, record: goal })}><span>{goal.scope === "year" ? "Año" : goal.scope === "semester" ? "Semestre" : goal.scope === "quarter" ? "Trimestre" : goal.scope === "month" ? "Mes" : "Semana"}</span><strong>{goal.title}</strong><small>{parent ? `Parte de: ${parent.title}` : goal.description || "Define el siguiente hito"}</small>{progress != null && <i><b style={{ width: `${progress}%` }} /></i>}</button>; })}{!activeGoals.length && <button className="sprint-direction-empty" onClick={() => onOpen({ kind: "planGoal", projects: data.projects, defaultScope: "year", defaultPeriod: today.slice(0, 4) })}>+ Define tu primer objetivo anual</button>}</div></div><div className="sprint-notes"><div className="card-heading"><div><span className="section-label dark"><StickyNote size={14} /> NOTAS DE LA SEMANA</span><h3>Decisiones e ideas</h3></div><button className="add-inline top" onClick={() => onOpen({ kind: "note", projects: data.projects, sprintWeek: weekStart })}><Plus size={14} /> Nota</button></div>{weeklyNotes.map((note) => <button key={note.id} onClick={() => onOpen({ kind: "note", projects: data.projects, record: note })}><strong>{note.title}</strong><small>{note.content || "Sin contenido"}</small></button>)}{!weeklyNotes.length && <p>Deja aquí el contexto que necesitas recuperar al revisar el sprint.</p>}</div></section>
     {!data.projects.length && <div className="sprint-empty-project"><EmptyState text="Crea primero un proyecto para comenzar a planificar el sprint." action="Crear proyecto" onClick={() => onOpen({ kind: "project" })} /></div>}
     {!!data.projects.length && <><div className="sprint-days">{days.map((date) => { const tasks = weekTasks.filter((task) => task.scheduledDate === date).sort(compareProjectTasks); const isToday = date === today; return <section className={`sprint-day ${isToday ? "today" : ""}`} key={date}><header><div><small>{shortDay(date)}</small><strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong></div><span>{tasks.reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0) ? formatMinutes(tasks.reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0)) : missingValue}</span></header><div>{tasks.map(taskCard)}</div><button className="sprint-add" onClick={() => openTask(undefined, date)}><Plus size={13} /> Añadir</button></section>; })}</div>
     <section className="sprint-backlog"><div className="card-heading"><div><span className="section-label dark"><ListTodo size={14} /> SIN PLANIFICAR</span><h3>Backlog del sprint</h3><p>Asigna un día cuando sepas cuándo y con qué energía puedes realizar cada tarea.</p></div><button className="add-inline top" onClick={() => openTask()}><Plus size={14} /> Añadir tarea</button></div><div className="sprint-backlog-grid">{backlog.sort(compareProjectTasks).map(taskCard)}</div>{!backlog.length && <EmptyState text="No tienes tareas pendientes sin día asignado." />}</section></>}
@@ -1279,9 +1283,9 @@ function RecordModal({ modal, data, today, close, save, navigate, open }: {
     {modal.kind === "programLog" && <ProgramLogForm program={modal.program} record={modal.record} today={today} busy={busy} onSubmit={(payload) => submit("programLog", payload, "Registro diario guardado")} />}
     {modal.kind === "project" && <ProjectForm record={modal.record} today={today} busy={busy} onSubmit={(payload) => submit("project", payload, modal.record ? "Proyecto actualizado" : "Proyecto creado")} />}
     {modal.kind === "projectTask" && <ProjectTaskForm projects={modal.projects} project={modal.project} record={modal.record} defaultDate={modal.defaultDate} defaultSprintWeek={modal.defaultSprintWeek} busy={busy} onSubmit={(payload) => submit("projectTask", payload, modal.record ? "Tarea actualizada" : "Tarea creada")} />}
-    {modal.kind === "planGoal" && <PlanGoalForm projects={modal.projects} record={modal.record} defaultScope={modal.defaultScope} defaultPeriod={modal.defaultPeriod} today={today} busy={busy} onSubmit={(payload) => submit("planGoal", payload, modal.record ? "Objetivo actualizado" : "Objetivo creado")} />}
+    {modal.kind === "planGoal" && <PlanGoalForm projects={modal.projects} goals={data.planGoals} record={modal.record} defaultScope={modal.defaultScope} defaultPeriod={modal.defaultPeriod} today={today} busy={busy} onSubmit={(payload) => submit("planGoal", payload, modal.record ? "Objetivo actualizado" : "Objetivo creado")} />}
     {modal.kind === "planTask" && <PlanTaskForm goal={modal.goal} goals={modal.goals} projects={modal.projects} record={modal.record} defaultPeriod={modal.defaultPeriod} today={today} busy={busy} onSubmit={(payload) => submit("planTask", payload, modal.record ? "Tarea actualizada" : "Tarea creada")} />}
-    {modal.kind === "note" && <NoteForm projects={modal.projects} projectId={modal.projectId} record={modal.record} busy={busy} onSubmit={(payload) => submit("note", payload, modal.record ? "Nota actualizada" : "Nota creada")} />}
+    {modal.kind === "note" && <NoteForm projects={modal.projects} projectId={modal.projectId} sprintWeek={modal.sprintWeek} record={modal.record} busy={busy} onSubmit={(payload) => submit("note", payload, modal.record ? "Nota actualizada" : "Nota creada")} />}
     {modal.kind === "bucketItem" && <BucketItemForm record={modal.record} busy={busy} onSubmit={(payload) => submit("bucketItem", payload, modal.record ? "Sueño actualizado" : "Añadido a tu bucket list")} />}
     {modal.kind === "gratitude" && <GratitudeForm record={modal.record} today={today} busy={busy} onSubmit={(payload) => submit("gratitude", payload, modal.record ? "Agradecimiento actualizado" : "Agradecimiento guardado")} />}
     {modal.kind === "mindNode" && <MindNodeForm nodes={modal.nodes} projects={modal.projects} record={modal.record} parentId={modal.parentId} busy={busy} onSubmit={(payload) => submit("mindNode", payload, modal.record ? "Nodo actualizado" : "Nodo añadido al mapa")} />}
@@ -1325,13 +1329,24 @@ function ProjectTaskForm({ projects, project, record, defaultDate, defaultSprint
   return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><div className="program-context"><FolderKanban size={17} /><div><strong>Planificar una acción</strong><small>Proyecto, sprint, esfuerzo y contexto</small></div></div><label>Proyecto<select required value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Selecciona un proyecto</option>{projects.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><label>Tarea<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Define una acción concreta" /></label><label>Detalle<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Información necesaria para completarla…" /></label><div className="form-grid"><label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProjectTask["status"] })}><option value="todo">Por hacer</option><option value="doing">En curso</option><option value="done">Hecha</option></select></label><label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label><label>Energía necesaria<select value={form.energy} onChange={(event) => setForm({ ...form, energy: event.target.value as ProjectTask["energy"] })}><option value="low">Baja · tarea ligera</option><option value="medium">Media · concentración normal</option><option value="high">Alta · trabajo profundo</option></select></label><label>Tiempo estimado (min)<input type="number" min="5" max="1440" step="5" value={form.estimatedMinutes} onChange={(event) => setForm({ ...form, estimatedMinutes: event.target.value })} placeholder="Ej. 45" /></label><label>Día planificado<input type="date" value={form.scheduledDate} onChange={(event) => schedule(event.target.value)} /><small className="field-help">Al elegir un día, la tarea entra automáticamente en el sprint de esa semana.</small></label><label>Fecha límite<input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label></div>{form.sprintWeek && <label className="toggle-label"><input type="checkbox" checked={Boolean(form.sprintWeek)} onChange={(event) => setForm({ ...form, sprintWeek: event.target.checked ? (form.scheduledDate ? startOfWeek(form.scheduledDate) : defaultSprintWeek ?? startOfWeek(madridDateKey(new Date()))) : "", scheduledDate: event.target.checked ? form.scheduledDate : "" })} /> Incluir en el sprint de {formatShortDate(form.scheduledDate ? startOfWeek(form.scheduledDate) : form.sprintWeek)}</label>}<SubmitButton busy={busy} label={record ? "Guardar cambios" : "Crear tarea"} /></form>;
 }
 
-function PlanGoalForm({ projects, record, defaultScope, defaultPeriod, today, busy, onSubmit }: { projects: Project[]; record?: PlanGoal; defaultScope?: PlanGoal["scope"]; defaultPeriod?: string; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
+function PlanGoalForm({ projects, goals, record, defaultScope, defaultPeriod, today, busy, onSubmit }: { projects: Project[]; goals: PlanGoal[]; record?: PlanGoal; defaultScope?: PlanGoal["scope"]; defaultPeriod?: string; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
   const initialScope = record?.scope ?? defaultScope ?? "month";
-  const [form, setForm] = useState({ id: record?.id, title: record?.title ?? "", description: record?.description ?? "", scope: initialScope, period: record?.period ?? defaultPeriod ?? (initialScope === "month" ? today.slice(0, 7) : quarterKey(today.slice(0, 7))), projectId: record?.projectId ?? "", priority: record?.priority ?? "medium", status: record?.status ?? "todo", targetDate: record?.targetDate ?? "" });
+  const [form, setForm] = useState({ id: record?.id, title: record?.title ?? "", description: record?.description ?? "", scope: initialScope, period: record?.period ?? defaultPeriod ?? (initialScope === "year" ? today.slice(0, 4) : initialScope === "month" ? today.slice(0, 7) : quarterKey(today.slice(0, 7))), projectId: record?.projectId ?? "", parentGoalId: record?.parentGoalId ?? "", priority: record?.priority ?? "medium", status: record?.status ?? "todo", targetDate: record?.targetDate ?? "" });
   function changeScope(scope: PlanGoal["scope"]) {
-    setForm({ ...form, scope, period: scope === "month" ? today.slice(0, 7) : quarterKey(today.slice(0, 7)) });
+    setForm({ ...form, scope, period: scope === "year" ? today.slice(0, 4) : scope === "semester" ? `${today.slice(0, 4)}-S${Number(today.slice(5, 7)) <= 6 ? 1 : 2}` : scope === "quarter" ? quarterKey(today.slice(0, 7)) : today.slice(0, 7) });
   }
-  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><label>Objetivo<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Publicar la nueva web del proyecto" /></label><label>Resultado esperado<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe qué tiene que estar conseguido al terminar el periodo…" /></label><div className="form-grid"><label>Horizonte<select value={form.scope} onChange={(event) => changeScope(event.target.value as PlanGoal["scope"])}><option value="month">Objetivo mensual</option><option value="quarter">Objetivo trimestral</option></select></label>{form.scope === "month" ? <label>Mes<input type="month" value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })} /></label> : <label>Trimestre<select value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })}>{quarterOptions(today).map((quarter) => <option key={quarter} value={quarter}>{quarterLabel(quarter)}</option>)}</select></label>}<label>Proyecto relacionado<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Objetivo general</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label><label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label><label>Fecha límite<input type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} /></label></div><small className="field-help">El avance se calcula desde las tareas vinculadas. Si no tiene tareas, podrás marcarlo manualmente desde Planificación.</small><SubmitButton busy={busy} label={record ? "Guardar cambios" : "Crear objetivo"} /></form>;
+  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}>
+    <label>Objetivo<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Consolidar una actividad profesional propia" /></label>
+    <label>Resultado esperado<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe qué tiene que estar conseguido al terminar el periodo…" /></label>
+    <div className="form-grid">
+      <label>Horizonte<select value={form.scope} onChange={(event) => changeScope(event.target.value as PlanGoal["scope"])}><option value="year">Objetivo anual</option><option value="semester">Objetivo semestral</option><option value="quarter">Objetivo trimestral</option><option value="month">Objetivo mensual</option><option value="week">Objetivo semanal</option></select></label>
+      <label>Periodo<input value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })} placeholder="2026, 2026-S2 o 2026-Q3" /></label>
+      <label>Se desglosa desde<select value={form.parentGoalId} onChange={(event) => setForm({ ...form, parentGoalId: event.target.value })}><option value="">Sin objetivo superior</option>{goals.filter((goal) => goal.id !== record?.id).map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></label>
+      <label>Proyecto relacionado<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Objetivo general</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label>
+      <label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
+      <label>Fecha límite<input type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} /></label>
+    </div><small className="field-help">Conecta cada objetivo con el horizonte superior. El avance se calcula desde las acciones vinculadas.</small><SubmitButton busy={busy} label={record ? "Guardar cambios" : "Crear objetivo"} />
+  </form>;
 }
 
 function PlanTaskForm({ goal, goals, projects, record, defaultPeriod, today, busy, onSubmit }: { goal?: PlanGoal; goals: PlanGoal[]; projects: Project[]; record?: PlanTask; defaultPeriod?: string; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
@@ -1355,8 +1370,8 @@ function PlanTaskForm({ goal, goals, projects, record, defaultPeriod, today, bus
   </form>;
 }
 
-function NoteForm({ projects, projectId, record, busy, onSubmit }: { projects: Project[]; projectId?: string; record?: NoteItem; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
-  const [form, setForm] = useState({ id: record?.id, projectId: record?.projectId ?? projectId ?? "", title: record?.title ?? "", content: record?.content ?? "", category: record?.category ?? "Idea", pinned: record?.pinned ?? false });
+function NoteForm({ projects, projectId, sprintWeek, record, busy, onSubmit }: { projects: Project[]; projectId?: string; sprintWeek?: string; record?: NoteItem; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
+  const [form, setForm] = useState({ id: record?.id, projectId: record?.projectId ?? projectId ?? "", title: record?.title ?? "", content: record?.content ?? "", category: record?.category ?? (sprintWeek ? "Semana" : "Idea"), pinned: record?.pinned ?? false, sprintWeek: record?.sprintWeek ?? sprintWeek ?? "" });
   return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><label>Título<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Decisiones sobre el modelo de negocio" /></label><label>Contenido<textarea className="large-textarea" value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="Ideas, decisiones, aprendizajes, enlaces o información que quieras conservar…" /></label><div className="form-grid"><label>Categoría<select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}><option>Idea</option><option>Reunión</option><option>Decisión</option><option>Aprendizaje</option><option>Investigación</option><option>Referencia</option></select></label><label>Proyecto<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Nota general</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.title}</option>)}</select></label></div><label className="toggle-label"><input type="checkbox" checked={form.pinned} onChange={(event) => setForm({ ...form, pinned: event.target.checked })} /> Fijar esta nota</label><SubmitButton busy={busy} label={record ? "Guardar cambios" : "Crear nota"} /></form>;
 }
 
@@ -1514,7 +1529,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, projectTasks: upsertLocal(current.projectTasks, record) };
   }
   if (resource === "planGoal") {
-    const record = { ...payload, id, projectId: payload.projectId || null, targetDate: payload.targetDate || null } as unknown as PlanGoal;
+    const record = { ...payload, id, projectId: payload.projectId || null, parentGoalId: payload.parentGoalId || null, targetDate: payload.targetDate || null } as unknown as PlanGoal;
     return { ...current, planGoals: upsertLocal(current.planGoals, record) };
   }
   if (resource === "planTask") {
@@ -1529,7 +1544,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, focusSessions: upsertLocal(current.focusSessions, record).sort((a, b) => b.startedAt.localeCompare(a.startedAt)) };
   }
   if (resource === "note") {
-    const record = { ...payload, id, projectId: payload.projectId || null } as unknown as NoteItem;
+    const record = { ...payload, id, projectId: payload.projectId || null, sprintWeek: payload.sprintWeek || null } as unknown as NoteItem;
     return { ...current, notes: upsertLocal(current.notes, record) };
   }
   if (resource === "gratitude") {
