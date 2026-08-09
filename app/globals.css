@@ -836,7 +836,8 @@ input, select { font: inherit; color: inherit; }
 .sprint-summary { grid-template-columns: repeat(4,minmax(0,1fr)); }
 .sprint-summary article { min-height: 82px; padding: 14px 16px; border: 1px solid #e7e3dc; border-radius: 13px; background: #fff; }.sprint-summary small, .sprint-summary strong, .sprint-summary span { display: block; }.sprint-summary small { color: #9b97a2; font-size: 6.8px; font-weight: 750; letter-spacing: .08em; }.sprint-summary strong { margin: 7px 0 3px; font-family: Georgia,serif; color: #625d7e; font-size: 20px; font-weight: 500; }.sprint-summary span { color: #aaa7ae; font-size: 7.5px; }
 .sprint-days { min-width: 0; display: grid; grid-template-columns: repeat(7,minmax(140px,1fr)); gap: 7px; overflow-x: auto; padding-bottom: 7px; scrollbar-width: thin; scrollbar-color: #c8c3d1 transparent; }
-.sprint-day { min-height: 300px; padding: 8px; border: 1px solid #e8e4dd; border-radius: 13px; background: #f4f1eb; }.sprint-day.today { border-color: #a49cc7; background: #f0eef6; box-shadow: inset 0 0 0 1px rgba(127,118,181,.08); }
+.sprint-calendar { overflow-x: auto; padding-bottom: 7px; scrollbar-width: thin; scrollbar-color: #c8c3d1 transparent; }.sprint-calendar .sprint-days, .sprint-timeline { min-width: 1000px; display: grid; grid-template-columns: repeat(7,minmax(140px,1fr)); gap: 7px; overflow: visible; }.sprint-calendar .sprint-days { padding-bottom: 7px; }.sprint-timeline { align-items: stretch; padding: 4px 0; border-radius: 13px; background: repeating-linear-gradient(90deg, #f4f1eb 0, #f4f1eb calc((100% - 42px)/7), transparent calc((100% - 42px)/7), transparent calc((100% - 35px)/7)); }.sprint-task-span { min-width: 0; align-self: stretch; z-index: 1; }.sprint-timeline .sprint-task-card { height: 100%; min-height: 54px; margin: 0; }
+.sprint-day { min-height: 112px; display: flex; flex-direction: column; padding: 8px; border: 1px solid #e8e4dd; border-radius: 13px; background: #f4f1eb; }.sprint-day.today { border-color: #a49cc7; background: #f0eef6; box-shadow: inset 0 0 0 1px rgba(127,118,181,.08); }
 .sprint-day.over-capacity { border-color: #d99086; background: #fbf3f1; }
 .sprint-day > header { min-height: 45px; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 1px 3px 8px; }.sprint-day > header div { display: flex; align-items: baseline; gap: 5px; }.sprint-day > header small { color: #918d99; font-size: 6.5px; font-weight: 750; }.sprint-day > header strong { font-family: Georgia,serif; font-size: 18px; font-weight: 500; }.sprint-day > header > span { color: #aaa6ae; font-size: 6.8px; }
 .sprint-day > header { min-height: 54px; }.day-capacity { color: #817d89; font-size: 6.5px; line-height: 1.45; text-align: right; }.day-capacity b { color: #655f77; font-weight: 800; }.day-capacity em { color: #779082; font-style: normal; }.over-capacity .day-capacity em { color: #af625d; }
@@ -847,7 +848,7 @@ input, select { font: inherit; color: inherit; }
 .sprint-task-body small { display: flex; align-items: center; gap: 3px; }
 .sprint-task-side { display: flex; flex-direction: column; align-items: center; gap: 7px; }.sprint-task-side button { width: 19px; height: 19px; display: grid; place-items: center; padding: 0; border: 0; color: #b2afb5; background: transparent; cursor: pointer; }.priority-dot { width: 7px; height: 7px; border-radius: 50%; background: #c6a672; }.priority-dot.high { background: #c8797e; }.priority-dot.low { background: #7ca493; }
 .sprint-add { width: 100%; min-height: 29px; display: flex; align-items: center; justify-content: center; gap: 4px; border: 1px dashed #d6d1c8; border-radius: 8px; color: #98939f; background: rgba(255,255,255,.35); font-size: 7.5px; cursor: pointer; }
-.sprint-day-tasks { min-height: 175px; }.task-continuation { position: relative; }.task-continuation::before { content: ""; position: absolute; top: 20px; left: -8px; width: 7px; border-top: 1px dashed #a69fbc; }.task-continuation > small { display: block; margin: -4px 0 5px 30px; color: #9a94a7; font-size: 6px; font-style: italic; }
+.sprint-day .sprint-add { margin-top: auto; }
 .sprint-backlog { margin-top: 13px; padding-top: 16px; border-top: 1px solid #eae7e1; }.sprint-backlog .card-heading p { margin: 4px 0 0; color: #a09da5; font-size: 7.5px; }.sprint-backlog-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; margin-top: 12px; }.sprint-backlog-grid .sprint-task-card { margin: 0; }
 .sprint-empty-project { padding: 30px 0 10px; }
 .sprint-history { margin-top: 14px; padding: 13px 15px; border: 1px solid #e8e4dd; border-radius: 13px; background: #f8f7f3; }.sprint-history summary { display: flex; align-items: center; gap: 7px; color: #77738a; font-size: 8px; font-weight: 750; cursor: pointer; }.sprint-history > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; margin-top: 12px; }.sprint-history p { margin: 10px 0 0; color: #9b98a0; font-size: 8px; }.sprint-history .sprint-task-card { margin: 0; opacity: .55; }.sprint-history .sprint-task-card:hover { opacity: .9; }
@@ -907,7 +908,7 @@ input, select { font: inherit; color: inherit; }
   .manual-time-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .gratitude-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .mindmap-layout { grid-template-columns: 1fr; }.mindmap-detail { min-height: 0; }
-  .sprint-days { grid-template-columns: repeat(7,160px); }
+  .sprint-calendar .sprint-days, .sprint-calendar .sprint-timeline { min-width: 1162px; grid-template-columns: repeat(7,160px); }
 }
 
 @media (max-width: 760px) {
@@ -949,7 +950,7 @@ input, select { font: inherit; color: inherit; }
   .sprint-workspace { padding: 17px; }
   .sprint-toolbar { flex-direction: column; }.sprint-actions { width: 100%; justify-content: flex-start; }.sprint-actions .primary-button { margin-left: auto; }
   .sprint-summary { grid-template-columns: 1fr; }.sprint-summary article { min-height: 70px; }
-  .sprint-days { grid-template-columns: repeat(7,82vw); scroll-snap-type: x mandatory; }.sprint-day { min-height: 250px; scroll-snap-align: start; }
+  .sprint-calendar .sprint-days, .sprint-calendar .sprint-timeline { min-width: 574px; grid-template-columns: repeat(7,82px); }.sprint-day { min-height: 112px; scroll-snap-align: start; }.sprint-calendar { scroll-snap-type: x mandatory; }
   .sprint-backlog-grid { grid-template-columns: 1fr; }
   .sprint-history > div { grid-template-columns: 1fr; }
   .sprint-direction { grid-template-columns: 1fr; }.sprint-goal-list { grid-template-columns: 1fr; }.sprint-notes { padding:14px 0 0; border-top:1px solid #e3dfea; border-left:0; }
