@@ -1685,9 +1685,13 @@ function buildMetricInsights(data: LifeData) {
   const completeMetrics = metrics.filter((metric) => metric.sleepHours != null || metric.sleepQuality != null || metric.exerciseMinutes != null || metric.activeCalories != null || metric.screenTimeHours != null);
   const recentWeek = completeMetrics.slice(0, 7);
   const previousWeek = completeMetrics.slice(7, 14);
-  const weekAverage = (field: keyof Metric) => average(recentWeek.map((metric) => Number(metric[field])));
-  const previousWeekAverage = (field: keyof Metric) => average(previousWeek.map((metric) => Number(metric[field])));
-  const baseline = (field: keyof Metric) => average(completeMetrics.map((metric) => Number(metric[field])));
+  const metricAverage = (items: Metric[], field: keyof Metric) => average(items.map((metric) => {
+    const value = metric[field];
+    return typeof value === "number" ? value : null;
+  }));
+  const weekAverage = (field: keyof Metric) => metricAverage(recentWeek, field);
+  const previousWeekAverage = (field: keyof Metric) => metricAverage(previousWeek, field);
+  const baseline = (field: keyof Metric) => metricAverage(completeMetrics, field);
   const latestDate = recentWeek[0]?.date;
   const screenCoverage = completeMetrics.filter((metric) => metric.screenTimeHours != null);
   const recoveryDays = completeMetrics.filter((metric) => (metric.sleepHours ?? 0) >= 7 && (metric.sleepQuality ?? 0) >= 80);
@@ -1745,7 +1749,7 @@ function buildMetricInsights(data: LifeData) {
     },
     {
       title: "Pico de movimiento",
-      color: "green",
+      color: "mint",
       icon: <Flame size={16} />,
       text: bestActiveDay
         ? `Tu día más activo fue el ${formatShortDate(bestActiveDay.date)}: ${formatNumber(bestActiveDay.activeCalories)} kcal activas${bestActiveDay.exerciseMinutes != null ? ` y ${formatNumber(bestActiveDay.exerciseMinutes)} min de ejercicio` : ""}. Úsalo como referencia para entender qué tipo de día quieres repetir.`
@@ -1782,6 +1786,7 @@ function lastDays(today: string, count: number) { const base = new Date(`${today
 function moodEmoji(value: number | null | undefined) { return value == null ? "" : ["😞", "😕", "😐", "🙂", "😊"][Math.max(1, Math.min(5, value)) - 1]; }
 function formatNumber(value: number | null | undefined) { return value == null ? missingValue : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value); }
 function formatDecimal(value: number | null | undefined) { return value == null ? missingValue : new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value); }
+function formatSigned(value: number) { return `${value > 0 ? "+" : ""}${new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value)}`; }
 function metricValue(value: number | null | undefined, unit: string) { return value == null ? missingValue : `${formatNumber(value)} ${unit}`; }
 function nullableNumber(value: unknown) { return value === "" || value == null ? null : Number(value); }
 function formatDuration(value: number | null | undefined) {
