@@ -1681,38 +1681,77 @@ function average(values: Array<number | null | undefined>) {
 }
 
 function buildMetricInsights(data: LifeData) {
-  const byDate = new Map(data.metrics.map((metric) => [metric.date, metric]));
-  const nextDayPairs = data.metrics.flatMap((metric) => {
-    if (metric.sleepHours == null) return [];
-    const next = byDate.get(addDays(metric.date, 1));
-    return next && (next.energy != null || next.mood != null) ? [{ sleep: metric.sleepHours, energy: next.energy, mood: next.mood }] : [];
-  });
-  const rested = nextDayPairs.filter((pair) => pair.sleep >= 7);
-  const short = nextDayPairs.filter((pair) => pair.sleep < 7);
-  const restedEnergy = average(rested.map((pair) => pair.energy));
-  const shortEnergy = average(short.map((pair) => pair.energy));
-  const restedMood = average(rested.map((pair) => pair.mood));
-  const shortMood = average(short.map((pair) => pair.mood));
+  const metrics = [...data.metrics].sort((a, b) => b.date.localeCompare(a.date));
+  const completeMetrics = metrics.filter((metric) => metric.sleepHours != null || metric.sleepQuality != null || metric.exerciseMinutes != null || metric.activeCalories != null || metric.screenTimeHours != null);
+  const recentWeek = completeMetrics.slice(0, 7);
+  const previousWeek = completeMetrics.slice(7, 14);
+  const weekAverage = (field: keyof Metric) => average(recentWeek.map((metric) => Number(metric[field])));
+  const previousWeekAverage = (field: keyof Metric) => average(previousWeek.map((metric) => Number(metric[field])));
+  const baseline = (field: keyof Metric) => average(completeMetrics.map((metric) => Number(metric[field])));
+  const latestDate = recentWeek[0]?.date;
+  const screenCoverage = completeMetrics.filter((metric) => metric.screenTimeHours != null);
+  const recoveryDays = completeMetrics.filter((metric) => (metric.sleepHours ?? 0) >= 7 && (metric.sleepQuality ?? 0) >= 80);
+  const bestActiveDay = completeMetrics.filter((metric) => metric.activeCalories != null).sort((a, b) => (b.activeCalories ?? 0) - (a.activeCalories ?? 0))[0];
+  const weekSleep = weekAverage("sleepHours");
+  const weekQuality = weekAverage("sleepQuality");
+  const weekCalories = weekAverage("activeCalories");
+  const weekExercise = weekAverage("exerciseMinutes");
+  const weekScreen = weekAverage("screenTimeHours");
+  const previousCalories = previousWeekAverage("activeCalories");
+  const previousScreen = previousWeekAverage("screenTimeHours");
+  const qualityBaseline = baseline("sleepQuality");
+  const sleepBaseline = baseline("sleepHours");
+  const caloriesBaseline = baseline("activeCalories");
+  const recoveryRate = completeMetrics.length ? Math.round(recoveryDays.length / completeMetrics.length * 100) : null;
+  const screenChange = weekScreen != null && previousScreen != null ? weekScreen - previousScreen : null;
+  const calorieChange = weekCalories != null && previousCalories != null ? weekCalories - previousCalories : null;
 
-  const screenPairs = data.metrics.filter((metric) => metric.screenTimeHours != null && metric.energy != null);
-  const sortedScreen = screenPairs.map((metric) => metric.screenTimeHours as number).sort((a, b) => a - b);
-  const screenMedian = sortedScreen.length ? sortedScreen[Math.floor(sortedScreen.length / 2)] : null;
-  const lowScreen = screenMedian == null ? [] : screenPairs.filter((metric) => (metric.screenTimeHours as number) <= screenMedian);
-  const highScreen = screenMedian == null ? [] : screenPairs.filter((metric) => (metric.screenTimeHours as number) > screenMedian);
-
-  const movementHabits = data.habits.filter((habit) => /caminar|movimiento|entrenamiento|salud física|ejercicio/i.test(`${habit.name} ${habit.category}`));
-  const movementDates = new Set(data.habitLogs.filter((log) => log.done && movementHabits.some((habit) => habit.id === log.habitId)).map((log) => log.date));
-  const moodRecords = data.metrics.filter((metric) => metric.mood != null);
-  const movementMood = moodRecords.filter((metric) => movementDates.has(metric.date));
-  const noMovementMood = moodRecords.filter((metric) => !movementDates.has(metric.date));
-
-  const enoughSleep = rested.length >= 2 && short.length >= 2 && (restedEnergy != null || restedMood != null) && (shortEnergy != null || shortMood != null);
-  const enoughScreen = lowScreen.length >= 2 && highScreen.length >= 2;
-  const enoughMovement = movementMood.length >= 2 && noMovementMood.length >= 2;
   return [
-    { title: "Sueño y día siguiente", color: "lilac", icon: <Moon size={16} />, text: enoughSleep ? `Tras dormir 7 h o más, tu energía media del día siguiente es ${formatDecimal(restedEnergy)} vs ${formatDecimal(shortEnergy)}; el ánimo es ${formatDecimal(restedMood)} vs ${formatDecimal(shortMood)}.` : "Necesitamos al menos 2 noches en cada grupo (7 h o más / menos de 7 h) con registro al día siguiente.", sample: `${nextDayPairs.length} pares de días comparables` },
-    { title: "Pantalla y energía", color: "rose", icon: <Smartphone size={16} />, text: enoughScreen ? `Con hasta ${formatNumber(screenMedian)} h de pantalla, tu energía media es ${formatDecimal(average(lowScreen.map((metric) => metric.energy)))} vs ${formatDecimal(average(highScreen.map((metric) => metric.energy)))} en días de mayor uso.` : "Registra pantalla y energía en más días para comparar jornadas de menor y mayor uso.", sample: `${screenPairs.length} días comparables` },
-    { title: "Movimiento y ánimo", color: "mint", icon: <Footprints size={16} />, text: enoughMovement ? `Los días con movimiento registrado, tu ánimo medio es ${formatDecimal(average(movementMood.map((metric) => metric.mood)))} vs ${formatDecimal(average(noMovementMood.map((metric) => metric.mood)))} el resto de los días.` : "Completa un hábito de movimiento y registra el ánimo en más días para detectar un patrón.", sample: `${movementMood.length} días con movimiento · ${noMovementMood.length} sin registro` },
+    {
+      title: "Tu semana en una mirada",
+      color: "lilac",
+      icon: <CalendarDays size={16} />,
+      text: recentWeek.length >= 5
+        ? `En los últimos ${recentWeek.length} días dormiste ${formatDecimal(weekSleep)} h de media, con ${formatNumber(weekQuality)}% de calidad, ${formatNumber(weekCalories)} kcal activas y ${formatNumber(weekExercise)} min de ejercicio al día.`
+        : "Registra al menos 5 días para recibir un resumen semanal completo.",
+      sample: latestDate ? `Semana terminada el ${formatShortDate(latestDate)}` : "Sin datos todavía",
+    },
+    {
+      title: "Cambio frente a la semana anterior",
+      color: "rose",
+      icon: <TrendingUp size={16} />,
+      text: screenChange != null && calorieChange != null
+        ? `Tu pantalla cambió ${formatSigned(screenChange)} h/día y tus calorías activas ${formatSigned(calorieChange)} kcal/día frente a los 7 días previos. Úsalo como señal para ajustar tu próximo bloque semanal.`
+        : "Cuando completes dos semanas de registros, verás qué ha cambiado de una a otra.",
+      sample: previousWeek.length >= 5 ? `${recentWeek.length} días actuales · ${previousWeek.length} anteriores` : "Falta completar la semana anterior",
+    },
+    {
+      title: "Tu base personal",
+      color: "mint",
+      icon: <Activity size={16} />,
+      text: completeMetrics.length
+        ? `Tu referencia de ${completeMetrics.length} días es ${formatDecimal(sleepBaseline)} h de sueño, ${formatNumber(qualityBaseline)}% de calidad y ${formatNumber(caloriesBaseline)} kcal activas al día. Compárate con esta base, no con un ideal ajeno.`
+        : "Aquí aparecerá tu línea base personal a medida que sumes registros.",
+      sample: `${completeMetrics.length} días con datos de actividad y descanso`,
+    },
+    {
+      title: "Noches de recuperación",
+      color: "sand",
+      icon: <Moon size={16} />,
+      text: recoveryRate != null
+        ? `En ${recoveryDays.length} de ${completeMetrics.length} noches (${recoveryRate}%) reuniste al menos 7 h de sueño y 80% de calidad. Esta es una referencia simple para observar tu descanso sostenido.`
+        : "Registra horas y calidad de sueño para seguir tu recuperación.",
+      sample: "Umbral: 7 h + calidad del 80%",
+    },
+    {
+      title: "Pico de movimiento",
+      color: "green",
+      icon: <Flame size={16} />,
+      text: bestActiveDay
+        ? `Tu día más activo fue el ${formatShortDate(bestActiveDay.date)}: ${formatNumber(bestActiveDay.activeCalories)} kcal activas${bestActiveDay.exerciseMinutes != null ? ` y ${formatNumber(bestActiveDay.exerciseMinutes)} min de ejercicio` : ""}. Úsalo como referencia para entender qué tipo de día quieres repetir.`
+        : "Registra calorías activas para identificar tus días de mayor movimiento.",
+      sample: screenCoverage.length ? `Pantalla registrada en ${screenCoverage.length} días` : "Sin registros de pantalla todavía",
+    },
   ];
 }
 
