@@ -1,0 +1,3 @@
+/* Registration belongs to each module, not the global LifeOS shell. */
+.top-actions > .primary-button{display:none!important}
+.mobile-fab{display:none!important}
