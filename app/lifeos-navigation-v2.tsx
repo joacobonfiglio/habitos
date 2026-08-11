@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Activity, Apple, BookHeart, ChevronLeft, ChevronRight, CircleUserRound,
   Clock3, FolderKanban, HeartPulse, Home, ListChecks, Menu, Network,
-  NotebookPen, Plus, Rocket, Settings, Sparkles, Star, Target, X
+  NotebookPen, Rocket, Settings, Sparkles, Star, Target, X
 } from "lucide-react";
 import "./navigation-v2.css";
 
@@ -56,13 +56,6 @@ export function LifeOSNavigationV2(){
     return()=>window.clearInterval(id);
   },[pathname]);
 
-  useEffect(()=>{
-    if(!pathname.startsWith("/nutrition"))return;
-    const params=new URLSearchParams(window.location.search); if(params.get("add")!=="1")return;
-    let tries=0; const id=window.setInterval(()=>{tries++; const button=document.querySelector<HTMLButtonElement>("button[class*='stickyAdd']"); if(button||tries>20){window.clearInterval(id);button?.click();history.replaceState({},"","/nutrition");}},80);
-    return()=>window.clearInterval(id);
-  },[pathname]);
-
   const go=(item:Destination)=>{
     setOpenArea(null);setMobileOpen(false);
     if(item.href){router.push(item.href);return;}
@@ -71,10 +64,6 @@ export function LifeOSNavigationV2(){
     else router.push(`/?module=${encodeURIComponent(item.module)}`);
   };
   const goHome=()=>{setMobileOpen(false); if(pathname==="/"){clickLegacyModule("Hoy")}else router.push("/")};
-  const openRegister=()=>{
-    if(pathname.startsWith("/nutrition")){const b=document.querySelector<HTMLButtonElement>("button[class*='stickyAdd']"); if(b)b.click(); else router.push("/nutrition?add=1");return;}
-    const b=document.querySelector<HTMLButtonElement>(".top-actions .primary-button, .mobile-fab"); b?.click();
-  };
   const goSettings=()=>{setMobileOpen(false); if(pathname==="/"){clickLegacyModule("Ajustes y datos")}else router.push("/?module=Ajustes%20y%20datos")};
 
   return <>
@@ -96,8 +85,6 @@ export function LifeOSNavigationV2(){
         <button className="lifeos-profile"><CircleUserRound size={22}/>{expanded&&<div><strong>Mi LifeOS</strong><small>Espacio privado</small></div>}</button>
       </div>
     </aside>
-
-    <button className="lifeos-global-register" onClick={openRegister}><Plus size={19}/><span>Registrar</span></button>
 
     <nav className="lifeos-mobile-nav-v2" aria-label="Navegación móvil LifeOS">
       <button className={pathname==="/"?"is-active":""} onClick={goHome}><Home size={20}/><span>Hoy</span></button>
