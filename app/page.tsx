@@ -198,6 +198,7 @@ export default function HomePage() {
   const dataRef = useRef(data);
   const cloudHydratedRef = useRef(false);
   const lastSyncedDataRef = useRef("");
+  const snapshotVersionRef = useRef<string | null>(null);
   const today = argentinaDateKey(new Date());
 
   useEffect(() => { dataRef.current = data; }, [data]);
@@ -262,16 +263,20 @@ export default function HomePage() {
       if (cancelled) return;
       if (syncError) { setCloudStatus("Error al recuperar"); return; }
       if (snapshot?.data) {
-        const parsed = parseStoredData(JSON.stringify(snapshot.data));
-        const serialized = JSON.stringify(parsed);
-        setData(parsed);
-        lastSyncedDataRef.current = serialized;
+        const cloudData = parseStoredData(JSON.stringify(snapshot.data));
+        const merged = mergeLifeData(cloudData, dataRef.current);
+        snapshotVersionRef.current = snapshot.updated_at ?? null;
+        lastSyncedDataRef.current = JSON.stringify(cloudData);
+        setData(merged);
         setCloudStatus("Sincronizado");
       } else if (hasPersonalData(dataRef.current)) {
         const serialized = JSON.stringify(dataRef.current);
-        const { error: uploadError } = await supabase.from("lifeos_snapshots").upsert({ user_id: cloudUserId, data: dataRef.current, schema_version: 3, updated_at: new Date().toISOString() });
+        const { data: uploaded, error: uploadError } = await supabase.from("lifeos_snapshots").upsert({ user_id: cloudUserId, data: dataRef.current, schema_version: 3, updated_at: new Date().toISOString() }).select("updated_at").maybeSingle();
         if (cancelled) return;
-        if (!uploadError) lastSyncedDataRef.current = serialized;
+        if (!uploadError) {
+          lastSyncedDataRef.current = serialized;
+          snapshotVersionRef.current = uploaded?.updated_at ?? null;
+        }
         setCloudStatus(uploadError ? "Error al sincronizar" : "Sincronizado");
       } else {
         setCloudStatus("Sin datos en la nube");
@@ -288,9 +293,24 @@ export default function HomePage() {
     if (serialized === lastSyncedDataRef.current || !hasPersonalData(data)) return;
     setCloudStatus("Sincronizando…");
     const timer = window.setTimeout(() => {
-      void supabase.from("lifeos_snapshots").upsert({ user_id: cloudUserId, data, schema_version: 3, updated_at: new Date().toISOString() }).then(({ error: syncError }) => {
-        if (!syncError) lastSyncedDataRef.current = serialized;
-        setCloudStatus(syncError ? "Error al sincronizar" : "Sincronizado");
+      let request = supabase.from("lifeos_snapshots").update({ data, schema_version: 3, updated_at: new Date().toISOString() }).eq("user_id", cloudUserId);
+      if (snapshotVersionRef.current) request = request.eq("updated_at", snapshotVersionRef.current);
+      void request.select("updated_at").maybeSingle().then(async ({ data: saved, error: syncError }) => {
+        if (syncError) { setCloudStatus("Error al sincronizar"); return; }
+        if (saved) {
+          snapshotVersionRef.current = saved.updated_at;
+          lastSyncedDataRef.current = serialized;
+          setCloudStatus("Sincronizado");
+          return;
+        }
+        const { data: fresh, error: refreshError } = await supabase.from("lifeos_snapshots").select("data, updated_at").eq("user_id", cloudUserId).maybeSingle();
+        if (refreshError || !fresh?.data) { setCloudStatus("Conflicto de sincronización"); return; }
+        const cloudData = parseStoredData(JSON.stringify(fresh.data));
+        const merged = mergeLifeData(cloudData, data);
+        snapshotVersionRef.current = fresh.updated_at ?? null;
+        lastSyncedDataRef.current = JSON.stringify(cloudData);
+        setData(merged);
+        setCloudStatus("Cambios de otro dispositivo recuperados");
       });
     }, 900);
     return () => window.clearTimeout(timer);
@@ -305,6 +325,7 @@ export default function HomePage() {
       const parsed = parseStoredData(JSON.stringify(incoming));
       const serialized = JSON.stringify(parsed);
       if (serialized === lastSyncedDataRef.current) return;
+      snapshotVersionRef.current = (payload.new as { updated_at?: string }).updated_at ?? snapshotVersionRef.current;
       lastSyncedDataRef.current = serialized;
       setData(parsed);
       setCloudStatus("Sincronizado");
@@ -359,11 +380,10 @@ export default function HomePage() {
     setCloudStatus("Sincronizando…");
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) { setCloudStatus("Inicia sesión"); return; }
-    const serialized = JSON.stringify(data);
-    const { error: syncError } = await supabase.from("lifeos_snapshots").upsert({ user_id: authData.user.id, data, schema_version: 3, updated_at: new Date().toISOString() });
-    if (!syncError) lastSyncedDataRef.current = serialized;
-    setCloudStatus(syncError ? "Error al sincronizar" : "Sincronizado ahora");
-    setToast(syncError ? "No se pudo sincronizar" : "Copia segura actualizada");
+    lastSyncedDataRef.current = "";
+    setData({ ...data });
+    setCloudStatus("Sincronizando…");
+    setToast("Sincronización iniciada");
     window.setTimeout(() => setToast(""), 2400);
   }, [data]);
 
@@ -376,9 +396,11 @@ export default function HomePage() {
     const { data: snapshot, error: syncError } = await supabase.from("lifeos_snapshots").select("data, updated_at").eq("user_id", authData.user.id).maybeSingle();
     if (syncError) { setCloudStatus("Error al recuperar"); return; }
     if (!snapshot?.data) { setCloudStatus("Sin copia en la nube"); return; }
-    const parsed = parseStoredData(JSON.stringify(snapshot.data));
-    lastSyncedDataRef.current = JSON.stringify(parsed);
-    setData(parsed);
+    const cloudData = parseStoredData(JSON.stringify(snapshot.data));
+    const merged = mergeLifeData(cloudData, dataRef.current);
+    snapshotVersionRef.current = snapshot.updated_at ?? null;
+    lastSyncedDataRef.current = JSON.stringify(cloudData);
+    setData(merged);
     setCloudStatus("Copia recuperada");
     setToast("Datos recuperados de la nube");
     window.setTimeout(() => setToast(""), 2400);
@@ -1590,6 +1612,32 @@ function removeLocalRecord(current: LifeData, resource: Resource, id: string): L
   if (resource === "gratitude") return { ...current, gratitudes: current.gratitudes.filter((item) => item.id !== id) };
   if (resource === "mindNode") return { ...current, mindNodes: current.mindNodes.filter((item) => item.id !== id && item.parentId !== id) };
   return current;
+}
+
+function mergeRecords<T extends { id: string }>(cloud: T[], local: T[]) {
+  const cloudIds = new Set(cloud.map((item) => item.id));
+  return [...cloud, ...local.filter((item) => !cloudIds.has(item.id))];
+}
+
+function mergeLifeData(cloud: LifeData, local: LifeData): LifeData {
+  return {
+    habits: mergeRecords(cloud.habits, local.habits),
+    habitLogs: mergeRecords(cloud.habitLogs, local.habitLogs),
+    metrics: mergeRecords(cloud.metrics, local.metrics),
+    journals: mergeRecords(cloud.journals, local.journals),
+    bullets: mergeRecords(cloud.bullets, local.bullets),
+    programs: mergeRecords(cloud.programs, local.programs),
+    programLogs: mergeRecords(cloud.programLogs, local.programLogs),
+    projects: mergeRecords(cloud.projects, local.projects),
+    projectTasks: mergeRecords(cloud.projectTasks, local.projectTasks),
+    planGoals: mergeRecords(cloud.planGoals, local.planGoals),
+    planTasks: mergeRecords(cloud.planTasks, local.planTasks),
+    focusSessions: mergeRecords(cloud.focusSessions, local.focusSessions),
+    notes: mergeRecords(cloud.notes, local.notes),
+    bucketItems: mergeRecords(cloud.bucketItems, local.bucketItems),
+    gratitudes: mergeRecords(cloud.gratitudes, local.gratitudes),
+    mindNodes: mergeRecords(cloud.mindNodes, local.mindNodes),
+  };
 }
 
 function hasPersonalData(data: LifeData) {
