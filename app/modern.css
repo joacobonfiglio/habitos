@@ -1,0 +1,167 @@
+:root{
+  --ink:#242720;
+  --muted:#777d72;
+  --line:#e7e9e3;
+  --paper:#f7f8f5;
+  --card:#ffffff;
+  --navy:#242a2c;
+  --violet:#7973a6;
+  --violet-soft:#f0eef7;
+  --green:#6f8d78;
+  --green-soft:#eaf1ec;
+  --sand:#a98962;
+  --sand-soft:#f5eee5;
+  --rose:#ab7378;
+  --rose-soft:#f6e9e8;
+}
+html,body{background:var(--paper)}
+body{font-family:var(--font-geist-sans),ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+
+/* Global product shell */
+.sidebar{width:244px;padding:22px 16px 18px;background:radial-gradient(circle at 18% 16%,rgba(132,121,187,.16),transparent 28%),radial-gradient(circle at 88% 68%,rgba(101,145,128,.13),transparent 30%),#202529;border-right:1px solid rgba(255,255,255,.04)}
+.main{margin-left:244px;background:var(--paper)}
+.brand{padding:0 8px 24px;gap:11px}
+.brand-mark{width:38px;height:38px;border-radius:13px;background:rgba(255,255,255,.07)}
+.brand strong{font-family:var(--font-geist-sans);font-size:19px;font-weight:760;letter-spacing:-.035em}
+.brand span{font-size:9px;letter-spacing:.14em}
+.side-nav{gap:4px}
+.side-nav button,.sidebar-bottom>button{height:43px;border-radius:12px;font-size:12px;font-weight:570;color:#aeb4b0}
+.side-nav button:hover,.sidebar-bottom>button:hover{background:rgba(255,255,255,.06)}
+.side-nav button.active{background:rgba(255,255,255,.09);box-shadow:inset 2px 0 #9d97c8;color:#fff}
+.nav-eyebrow{font-size:8px;letter-spacing:.15em;color:#747b78}
+.profile{padding-top:13px}
+.avatar{background:#e7e9e3;color:#343a35}
+
+.topbar{min-height:84px;padding:16px 3vw 14px;border-bottom:1px solid rgba(225,228,220,.92);background:rgba(247,248,245,.9);backdrop-filter:blur(18px)}
+.topbar-title span{font-size:10px;color:#8b9187}
+.topbar-title h1{font-family:var(--font-geist-sans);font-size:clamp(24px,2.1vw,31px);font-weight:760;letter-spacing:-.045em;color:#222722}
+.page-content{max-width:1240px;padding:26px 3vw 48px}
+.primary-button{height:41px;padding:0 15px;border-radius:13px;background:#273129;font-size:11px;font-weight:720;box-shadow:none;transition:.18s ease}
+.primary-button:hover{transform:translateY(-1px);background:#202821}
+.icon-button,.outline-compact,.outline-button,.date-switcher>button,.period-switcher>button,.today-period{border-color:#dfe3da;background:#fff;border-radius:12px;box-shadow:none}
+.cloud-sync-button{font-size:9px;color:#687b6e}
+
+/* Typography */
+.card-heading h3,.section-intro h2,.journal-date h2,.reflection-card h3,.bullet-card h3,.program-card h3,.module-card strong,.planning-summary strong,.quarter-map h3,.quarter-month-grid strong,.focus-preview-main strong,.period-switcher strong,.focus-stat-grid strong,.goal-card h3,.project-tile-main strong,.project-percentage,.workspace-subheader h3,.workspace-heading h3,.project-notes-strip h3,.note-card h3,.sprint-toolbar h3,.sprint-summary strong,.sprint-direction h3,.sprint-notes .card-heading h3,.bucket-hero h2,.bucket-ring strong,.bucket-progress>div:last-child strong,.bucket-card h3,.local-storage-card h3,.cloud-migration-card h3,.gratitude-hero h2,.gratitude-quote strong,.gratitude-summary strong,.gratitude-list h4,.mind-node strong,.mindmap-detail h3,.timer-ring strong,.chart-summary strong,.mood-average strong,.screen-summary strong,.streak-stat-grid strong,.calendar-day-label strong,.loading-card strong,.welcome-copy h2,.more-hero h2,.welcome-stats strong,.agenda-summary h3,.date-switcher strong,.metric-card strong,.program-card h3,.quick-modal h3,.modal-heading h3{font-family:var(--font-geist-sans)!important}
+.card-heading h3{font-size:18px;font-weight:730;letter-spacing:-.025em}
+.section-intro{align-items:flex-end;margin-bottom:20px}
+.section-intro h2{font-size:clamp(27px,2.8vw,36px);font-weight:770;letter-spacing:-.045em}
+.section-intro p{font-size:11px;color:#7c8278}
+.section-label{font-size:9px;letter-spacing:.12em}
+
+/* Shared surfaces */
+.card,.goal-card,.project-tile,.project-workspace,.sprint-workspace,.standalone-tasks-card,.planning-toolbar,.planning-summary article,.metric-card,.module-card,.note-card,.bucket-card,.gratitude-summary article,.gratitude-list article,.focus-stat-grid article,.local-storage-card,.cloud-migration-card{border-color:var(--line);background:#fff;box-shadow:0 1px 1px rgba(25,32,24,.02)}
+.card{padding:20px;border-radius:22px}
+.goal-card,.project-workspace,.sprint-workspace{border-radius:22px}
+.metric-card,.planning-summary article,.focus-stat-grid article,.module-card{border-radius:18px}
+.project-tile,.note-card,.bucket-card{border-radius:18px}
+.card:hover,.module-card:hover,.project-tile:hover{box-shadow:0 8px 24px rgba(26,32,26,.045)}
+
+/* Home */
+.welcome-card{min-height:205px;padding:31px 36px;border-radius:24px;background:radial-gradient(circle at 78% 27%,rgba(132,121,187,.24),transparent 28%),radial-gradient(circle at 90% 95%,rgba(101,145,128,.18),transparent 28%),linear-gradient(128deg,#23282d 0%,#292d3a 62%,#22272c 100%);box-shadow:none}
+.welcome-copy h2{font-size:clamp(32px,3vw,43px);font-weight:760;letter-spacing:-.05em}
+.welcome-copy>p{color:#bac0bc;font-size:12px}
+.welcome-stats strong{font-size:20px;font-weight:740}
+.weekly-life-card{margin:14px 0 0}
+.weekly-life-grid>div{border:1px solid #eceee9;border-radius:16px;background:#f7f8f5;padding:13px;color:#73709a}
+.weekly-life-grid strong{font-family:var(--font-geist-sans);font-size:15px;font-weight:720}
+.dashboard-grid{gap:14px;margin-top:14px}.left-column,.right-column{gap:14px}
+.habit{min-height:64px;border-color:#e8ebe5;border-radius:15px;background:#fff;padding:10px 12px}
+.habit:hover{box-shadow:0 6px 18px rgba(25,32,24,.045)}
+.habit strong{font-size:11px}.habit small{font-size:8px}
+.task{min-height:52px;border-color:#eef0ec}
+.task-number{border-radius:10px;background:#f1eff7}
+.progress-track{height:7px;background:#edf0ea}
+.progress-track span{background:#74877a}
+.moods button{height:42px;border-color:#e6e9e2;border-radius:13px;background:#fafbf9}
+.metric-row{border-color:#eef0eb}
+.experiment-card{border-radius:20px;background:linear-gradient(135deg,#77719d,#59606c);box-shadow:none}
+
+/* Subpages and toolbars */
+.subpage{padding-top:22px}
+.segmented,.planning-tabs,.focus-mode-tabs{border-color:#e1e4de;background:#eef1eb;border-radius:13px}
+.segmented button,.planning-tabs button,.focus-mode-tabs button{border-radius:10px;font-weight:630}
+.segmented button.active,.planning-tabs button.active{box-shadow:none}
+.calendar-status-banner{border-radius:18px}
+.tracker-card{border-radius:22px}
+.day-check{border-radius:11px}
+.summary-grid{gap:10px}
+
+/* Metrics */
+.metrics-grid{gap:11px}.metric-card{min-height:110px;padding:16px}
+.metric-card small{font-size:8px}.metric-card strong{font-size:20px;font-weight:730}
+.visual-metrics-grid,.metrics-insight-grid{gap:14px}
+.weight-chart-card,.mood-grid-card,.screen-chart-card,.history-card{border-radius:22px}
+.streak-stat-grid>div{border:1px solid #ebece8;background:#f7f8f5;border-radius:16px}
+.insight-list article{border-color:#e8ebe5;border-radius:16px;background:#fff}
+
+/* Focus */
+.focus-layout{gap:14px}
+.focus-timer-card{border-color:#e4e6e1;border-radius:24px;background:radial-gradient(circle at 50% 31%,rgba(121,115,166,.08),transparent 34%),#fff;box-shadow:none}
+.focus-timer-card.break{background:radial-gradient(circle at 50% 31%,rgba(111,141,120,.08),transparent 34%),#fff}
+.timer-ring{box-shadow:none}
+.focus-session-form input,.focus-session-form select,.manual-time-form input,.manual-time-form select{border-color:#dfe3da;border-radius:12px;background:#fbfcfa}
+.focus-history-list>div{border-color:#eef0eb}
+
+/* Planning / projects */
+.planning-toolbar{border-radius:20px;padding:13px 15px}
+.planning-summary{gap:10px}
+.quarter-map{border-color:var(--line);border-radius:20px;background:#fff}
+.quarter-month-grid button{border-color:#e7e9e4;border-radius:15px;background:#f8f9f6}
+.project-library{gap:11px}.project-tile{padding:17px}
+.workspace-subheader{border-color:var(--line);border-radius:18px;background:#fff}
+.project-workspace,.sprint-workspace{background:#fff;box-shadow:none}
+.kanban-column{border:1px solid #eceee9;border-radius:16px;background:#f7f8f5}.kanban-column.doing{background:#f5f4f9}.kanban-column.done{background:#f3f7f4}
+.task-card{border-color:#e5e8e1;border-radius:13px;box-shadow:none}
+.notes-mini-grid button{border-color:#e7e9e4;border-radius:14px;background:#fbfcfa}
+.sprint-day{border-color:#e6e9e2;border-radius:15px;background:#f7f8f5}.sprint-day.today{border-color:#b4b0cf;background:#f5f4f9}
+.sprint-task-card{border-color:#e5e8e1;border-radius:12px;box-shadow:none}
+.sprint-summary article{border-color:#e7e9e4;border-radius:15px;background:#f9faf8}
+.sprint-direction{border-color:#e6e7e3;border-radius:17px;background:#f9faf8}
+
+/* Journal, gratitude, bucket, mind map */
+.writing-card{padding:24px}.writing-card textarea{font-family:var(--font-geist-sans);font-size:14px;line-height:1.7}
+.journal-title{font-family:var(--font-geist-sans);font-size:17px;border-radius:13px}
+.prompt-box{border-radius:15px}.prompt-box p{font-family:var(--font-geist-sans);font-size:13px}
+.gratitude-hero,.bucket-hero,.more-hero{border-radius:24px;box-shadow:none}
+.gratitude-hero{background:radial-gradient(circle at 82% 30%,rgba(235,201,139,.19),transparent 25%),linear-gradient(130deg,#272b30,#403b49 58%,#514941)}
+.gratitude-quote{border-radius:20px}.gratitude-list article{background:#fff}
+.bucket-hero{background:radial-gradient(circle at 77% 30%,rgba(132,121,187,.24),transparent 26%),radial-gradient(circle at 90% 100%,rgba(101,145,128,.18),transparent 30%),linear-gradient(130deg,#23282d,#2d303d)}
+.bucket-card.inProgress{background:#fbf9f2}.bucket-card.completed{background:#f5f8f6}
+.mindmap-canvas-card{border-color:#e1e4de;border-radius:22px;background:radial-gradient(circle at center,rgba(130,120,180,.07),transparent 18%),radial-gradient(#e4e7e0 1px,transparent 1px),#fbfcfa;background-size:auto,22px 22px}
+.mind-node{border-radius:15px;box-shadow:none}
+.mindmap-detail h3{font-weight:750}
+
+/* Forms and modals */
+.quick-modal{border-radius:24px;background:#fff;box-shadow:0 24px 64px rgba(18,24,19,.18)}
+.modal-heading h3,.quick-modal h3{font-size:20px;font-weight:740;letter-spacing:-.025em}
+.quick-options button{border-color:#e4e7e0;border-radius:15px;background:#fbfcfa}
+.record-form input,.record-form select,.record-form textarea,.date-input,.journal-title{border-color:#dfe3da;border-radius:13px;background:#fbfcfa}
+.record-form input,.record-form select{height:43px}.record-form label{font-size:10px}
+.record-form input:focus,.record-form select:focus,.record-form textarea:focus,.journal-title:focus,.date-input:focus{border-color:#879889;box-shadow:0 0 0 3px rgba(111,141,120,.1)}
+.toast{border-radius:14px;background:#273129}
+
+/* Improve tiny text globally without changing layouts */
+.card small,.module-card small,.metric-card small,.program-card>p,.goal-card>p,.project-tile-footer,.workspace-heading p,.sprint-toolbar p,.bucket-card p,.note-card p,.gratitude-list p,.focus-history-list small,.insight-list p{line-height:1.5}
+
+@media(max-width:1020px){.sidebar{width:210px}.main{margin-left:210px}}
+@media(max-width:760px){
+  body{background:var(--paper)}
+  .main{margin-left:0}
+  .topbar{min-height:70px;padding:11px 14px;background:rgba(247,248,245,.94)}
+  .topbar-title h1{font-size:21px;font-weight:760}
+  .page-content{padding:16px 14px 28px}
+  .card{padding:17px;border-radius:19px}
+  .welcome-card{border-radius:21px;padding:27px 22px}
+  .welcome-copy h2{font-size:33px}
+  .mobile-menu{border-color:#dfe3da;border-radius:11px;background:#fff}
+  .mobile-nav{height:68px;border-color:#dfe3da;background:rgba(255,255,255,.96)}
+  .mobile-nav button{font-size:8px}.mobile-nav button.active{color:#65756a}
+  .mobile-fab{border-radius:16px;background:#273129;box-shadow:0 10px 24px rgba(39,49,41,.22)}
+  .mobile-drawer{background:#202529}
+  .mobile-drawer nav>button.active{background:rgba(255,255,255,.09);box-shadow:inset 2px 0 #9d97c8}
+  .section-intro{gap:11px}.section-intro h2{font-size:29px}
+  .goal-card,.project-workspace,.sprint-workspace,.planning-toolbar{border-radius:19px}
+  .focus-timer-card{border-radius:21px}
+  .record-modal{border-radius:22px}
+}
