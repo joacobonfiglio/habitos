@@ -198,7 +198,7 @@ export default function HomePage() {
   const dataRef = useRef(data);
   const cloudHydratedRef = useRef(false);
   const lastSyncedDataRef = useRef("");
-  const today = madridDateKey(new Date());
+  const today = argentinaDateKey(new Date());
 
   useEffect(() => { dataRef.current = data; }, [data]);
 
@@ -1775,7 +1775,7 @@ function truncateAtWord(value: string, limit: number) {
   return `${candidate.slice(0, boundary > limit * .55 ? boundary : limit).trimEnd()}…`;
 }
 
-function madridDateKey(date: Date) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(date); }
+function argentinaDateKey(date: Date) { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit" }).format(date); }
 function addDays(date: string, amount: number) { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + amount); return value.toISOString().slice(0, 10); }
 function startOfWeek(date: string) { const value = new Date(`${date}T12:00:00Z`); const day = value.getUTCDay(); value.setUTCDate(value.getUTCDate() - (day === 0 ? 6 : day - 1)); return value.toISOString().slice(0, 10); }
 function formatLongDate(date: string) { return new Date(`${date}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }); }
