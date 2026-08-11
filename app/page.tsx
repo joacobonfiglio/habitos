@@ -82,8 +82,8 @@ type Habit = {
 type HabitLog = { id: string; habitId: string; date: string; done: boolean; notes: string };
 type Metric = {
   id: string; date: string; weight: number | null; mood: number | null; energy: number | null;
-  sleepHours: number | null; waterLiters: number | null; stress: number | null;
-  exerciseMinutes: number | null; screenTimeHours: number | null; notes: string;
+  sleepHours: number | null; sleepQuality: number | null; stress: number | null;
+  exerciseMinutes: number | null; activeCalories: number | null; screenTimeHours: number | null; notes: string;
 };
 type Journal = {
   id: string; date: string; title: string; content: string; win: string; learning: string; tomorrow: string;
@@ -853,12 +853,13 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
   const weightStreak = streakStats(metrics.filter((metric) => metric.weight != null).map((metric) => metric.date), currentDate);
   const metricInsights = buildMetricInsights(data);
   return <div className="page-content subpage">
-    <section className="section-intro"><div><span className="section-label dark"><BarChart3 size={14} /> KPIs DE BIENESTAR</span><h2>Mide para entenderte, no para juzgarte</h2><p>Peso, ánimo, energía, sueño, agua, estrés, movimiento y tiempo de pantalla en un registro diario.</p></div><button className="primary-button" onClick={() => onOpen({ kind: "metric" })}><Plus size={17} /> Registrar hoy</button></section>
+    <section className="section-intro"><div><span className="section-label dark"><BarChart3 size={14} /> KPIs DE BIENESTAR</span><h2>Mide para entenderte, no para juzgarte</h2><p>Peso, ánimo, energía, sueño, estrés, movimiento, calorías activas y tiempo de pantalla en un registro diario.</p></div><button className="primary-button" onClick={() => onOpen({ kind: "metric" })}><Plus size={17} /> Registrar hoy</button></section>
     <div className="metrics-grid metrics-live">
       <MetricCard icon={<Scale size={19} />} label="Peso" value={metricValue(latest?.weight, "kg")} note={weightChange(latest, previous)} color="lilac" />
       <MetricCard icon={<Heart size={19} />} label="Ánimo" value={latest?.mood == null ? missingValue : `${moodEmoji(latest.mood)} ${latest.mood}/5`} note={latest ? formatShortDate(latest.date) : missingValue} color="rose" />
       <MetricCard icon={<Zap size={19} />} label="Energía" value={latest?.energy == null ? missingValue : `${latest.energy}/10`} note={latest?.stress == null ? missingValue : `Estrés ${latest.stress}/10`} color="sand" />
-      <MetricCard icon={<Moon size={19} />} label="Sueño" value={metricValue(latest?.sleepHours, "h")} note={latest?.waterLiters == null ? missingValue : `${formatNumber(latest.waterLiters)} L de agua`} color="green" />
+      <MetricCard icon={<Moon size={19} />} label="Sueño" value={metricValue(latest?.sleepHours, "h")} note={latest?.sleepQuality == null ? missingValue : `Calidad ${latest.sleepQuality}/5`} color="green" />
+      <MetricCard icon={<Flame size={19} />} label="Calorías activas" value={metricValue(latest?.activeCalories, "kcal")} note={latest?.exerciseMinutes == null ? missingValue : `${formatNumber(latest.exerciseMinutes)} min de ejercicio`} color="sand" />
       <MetricCard icon={<Smartphone size={19} />} label="Tiempo de pantalla" value={latest?.screenTimeHours == null ? missingValue : formatDuration(latest.screenTimeHours)} note={screenAverage == null ? missingValue : `Media ${formatDuration(screenAverage)}`} color="lilac" />
     </div>
     <div className="visual-metrics-grid">
@@ -900,8 +901,8 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
     <section className="card history-card">
       <div className="card-heading"><div><span className="section-label dark"><TrendingUp size={14} /> HISTORIAL</span><h3>Tus registros</h3></div><span className="date-pill">{metrics.length} días</span></div>
       <div className="history-table">
-        <div className="history-head"><span>Fecha</span><span>Peso</span><span>Ánimo</span><span>Energía</span><span>Sueño</span><span>Pantalla</span><span></span></div>
-        {metrics.map((metric) => <div className="history-row" key={metric.id}><span><strong>{formatShortDate(metric.date)}</strong></span><span>{metricValue(metric.weight, "kg")}</span><span>{metric.mood == null ? missingValue : `${moodEmoji(metric.mood)} ${metric.mood}/5`}</span><span>{metric.energy == null ? missingValue : `${metric.energy}/10`}</span><span>{metricValue(metric.sleepHours, "h")}</span><span>{formatDuration(metric.screenTimeHours)}</span><span className="row-actions"><button onClick={() => onOpen({ kind: "metric", record: metric })}><Edit3 size={15} /></button><button onClick={() => onDelete(metric.id)}><Trash2 size={15} /></button></span></div>)}
+        <div className="history-head"><span>Fecha</span><span>Peso</span><span>Ánimo</span><span>Energía</span><span>Sueño</span><span>Calorías</span><span>Pantalla</span><span></span></div>
+        {metrics.map((metric) => <div className="history-row" key={metric.id}><span><strong>{formatShortDate(metric.date)}</strong></span><span>{metricValue(metric.weight, "kg")}</span><span>{metric.mood == null ? missingValue : `${moodEmoji(metric.mood)} ${metric.mood}/5`}</span><span>{metric.energy == null ? missingValue : `${metric.energy}/10`}</span><span>{metric.sleepHours == null ? missingValue : `${formatNumber(metric.sleepHours)} h${metric.sleepQuality == null ? "" : ` · ${metric.sleepQuality}/5`}`}</span><span>{metricValue(metric.activeCalories, "kcal")}</span><span>{formatDuration(metric.screenTimeHours)}</span><span className="row-actions"><button onClick={() => onOpen({ kind: "metric", record: metric })}><Edit3 size={15} /></button><button onClick={() => onDelete(metric.id)}><Trash2 size={15} /></button></span></div>)}
       </div>
       {!metrics.length && <EmptyState text="Aún no hay métricas. Tu primer registro solo lleva un minuto." action="Crear registro" onClick={() => onOpen({ kind: "metric" })} />}
     </section>
@@ -1296,8 +1297,8 @@ function HabitForm({ record, busy, onSubmit }: { record?: Habit; busy: boolean; 
 }
 
 function MetricForm({ record, today, busy, onSubmit }: { record?: Metric; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
-  const [form, setForm] = useState({ id: record?.id, date: record?.date ?? today, weight: record?.weight ?? "", mood: record?.mood ?? 3, energy: record?.energy ?? 5, sleepHours: record?.sleepHours ?? "", waterLiters: record?.waterLiters ?? "", stress: record?.stress ?? 5, exerciseMinutes: record?.exerciseMinutes ?? "", screenTimeHours: record?.screenTimeHours ?? "", notes: record?.notes ?? "" });
-  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><label>Fecha<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label><div className="form-grid"><label>Peso (kg)<input type="number" step="0.1" min="20" max="350" value={form.weight} onChange={(event) => setForm({ ...form, weight: event.target.value })} placeholder="95,4" /></label><label>Sueño (horas)<input type="number" step="0.1" min="0" max="24" value={form.sleepHours} onChange={(event) => setForm({ ...form, sleepHours: event.target.value })} placeholder="7,5" /></label><label>Agua (litros)<input type="number" step="0.1" min="0" max="15" value={form.waterLiters} onChange={(event) => setForm({ ...form, waterLiters: event.target.value })} placeholder="2,0" /></label><label>Ejercicio (min)<input type="number" min="0" max="600" value={form.exerciseMinutes} onChange={(event) => setForm({ ...form, exerciseMinutes: event.target.value })} placeholder="30" /></label><label>Tiempo de pantalla (horas)<input type="number" step="0.1" min="0" max="24" value={form.screenTimeHours} onChange={(event) => setForm({ ...form, screenTimeHours: event.target.value })} placeholder="Ej. 4,5" /><small className="field-help">Puedes verlo en Bienestar digital o Tiempo de uso de tu móvil.</small></label></div><RangeField label={`Ánimo ${form.mood}/5`} min={1} max={5} value={Number(form.mood)} onChange={(value) => setForm({ ...form, mood: value })} /><RangeField label={`Energía ${form.energy}/10`} min={1} max={10} value={Number(form.energy)} onChange={(value) => setForm({ ...form, energy: value })} /><RangeField label={`Estrés ${form.stress}/10`} min={1} max={10} value={Number(form.stress)} onChange={(value) => setForm({ ...form, stress: value })} /><label>Notas<textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Cómo te has sentido, contexto o algo a recordar…" /></label><SubmitButton busy={busy} label="Guardar métricas" /></form>;
+  const [form, setForm] = useState({ id: record?.id, date: record?.date ?? today, weight: record?.weight ?? "", mood: record?.mood ?? 3, energy: record?.energy ?? 5, sleepHours: record?.sleepHours ?? "", sleepQuality: record?.sleepQuality ?? 3, stress: record?.stress ?? 5, exerciseMinutes: record?.exerciseMinutes ?? "", activeCalories: record?.activeCalories ?? "", screenTimeHours: record?.screenTimeHours ?? "", notes: record?.notes ?? "" });
+  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><label>Fecha<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label><div className="form-grid"><label>Peso (kg)<input type="number" step="0.1" min="20" max="350" value={form.weight} onChange={(event) => setForm({ ...form, weight: event.target.value })} placeholder="95,4" /></label><label>Sueño (horas)<input type="number" step="0.1" min="0" max="24" value={form.sleepHours} onChange={(event) => setForm({ ...form, sleepHours: event.target.value })} placeholder="7,5" /></label><label>Ejercicio (min)<input type="number" min="0" max="600" value={form.exerciseMinutes} onChange={(event) => setForm({ ...form, exerciseMinutes: event.target.value })} placeholder="30" /></label><label>Calorías activas (kcal)<input type="number" min="0" max="10000" value={form.activeCalories} onChange={(event) => setForm({ ...form, activeCalories: event.target.value })} placeholder="Ej. 420" /><small className="field-help">Usa las calorías activas que registra tu reloj o móvil.</small></label><label>Tiempo de pantalla (horas)<input type="number" step="0.1" min="0" max="24" value={form.screenTimeHours} onChange={(event) => setForm({ ...form, screenTimeHours: event.target.value })} placeholder="Ej. 4,5" /><small className="field-help">Puedes verlo en Bienestar digital o Tiempo de uso de tu móvil.</small></label></div><RangeField label={`Calidad del sueño ${form.sleepQuality}/5`} min={1} max={5} value={Number(form.sleepQuality)} onChange={(value) => setForm({ ...form, sleepQuality: value })} /><RangeField label={`Ánimo ${form.mood}/5`} min={1} max={5} value={Number(form.mood)} onChange={(value) => setForm({ ...form, mood: value })} /><RangeField label={`Energía ${form.energy}/10`} min={1} max={10} value={Number(form.energy)} onChange={(value) => setForm({ ...form, energy: value })} /><RangeField label={`Estrés ${form.stress}/10`} min={1} max={10} value={Number(form.stress)} onChange={(value) => setForm({ ...form, stress: value })} /><label>Notas<textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Cómo te has sentido, contexto o algo a recordar…" /></label><SubmitButton busy={busy} label="Guardar métricas" /></form>;
 }
 
 function BulletForm({ record, today, busy, onSubmit }: { record?: BulletItem; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
@@ -1455,7 +1456,7 @@ function parseStoredData(raw: string): LifeData {
   return {
     habits: Array.isArray(parsed.habits) ? parsed.habits : starterData.habits,
     habitLogs: Array.isArray(parsed.habitLogs) ? parsed.habitLogs : [],
-    metrics: Array.isArray(parsed.metrics) ? parsed.metrics : [],
+    metrics: Array.isArray(parsed.metrics) ? parsed.metrics.map(normalizeMetric) : [],
     journals: Array.isArray(parsed.journals) ? parsed.journals : [],
     bullets: Array.isArray(parsed.bullets) ? parsed.bullets : [],
     programs: Array.isArray(parsed.programs) ? parsed.programs : [],
@@ -1470,6 +1471,11 @@ function parseStoredData(raw: string): LifeData {
     gratitudes: Array.isArray(parsed.gratitudes) ? parsed.gratitudes : [],
     mindNodes: Array.isArray(parsed.mindNodes) && parsed.mindNodes.length ? parsed.mindNodes : mindMapSeed,
   };
+}
+
+function normalizeMetric(metric: Metric | (Partial<Metric> & { id: string; date: string })) : Metric {
+  const { waterLiters: _removedWaterMetric, ...rest } = metric as Metric & { waterLiters?: unknown };
+  return { ...rest, weight: nullableNumber(rest.weight), mood: nullableNumber(rest.mood), energy: nullableNumber(rest.energy), sleepHours: nullableNumber(rest.sleepHours), sleepQuality: nullableNumber(rest.sleepQuality), stress: nullableNumber(rest.stress), exerciseMinutes: nullableNumber(rest.exerciseMinutes), activeCalories: nullableNumber(rest.activeCalories), screenTimeHours: nullableNumber(rest.screenTimeHours), notes: typeof rest.notes === "string" ? rest.notes : "" } as Metric;
 }
 
 function localId(payload: Record<string, unknown>) {
@@ -1496,10 +1502,11 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, habitLogs: upsertLocal(current.habitLogs, record, (item) => item.habitId === record.habitId && item.date === record.date) };
   }
   if (resource === "metric") {
-    const numericFields = ["weight", "mood", "energy", "sleepHours", "waterLiters", "stress", "exerciseMinutes", "screenTimeHours"] as const;
+    const numericFields = ["weight", "mood", "energy", "sleepHours", "sleepQuality", "stress", "exerciseMinutes", "activeCalories", "screenTimeHours"] as const;
     const normalized = { ...payload };
     numericFields.forEach((field) => { normalized[field] = nullableNumber(payload[field]); });
-    const record = { ...normalized, id } as unknown as Metric;
+    delete normalized.waterLiters;
+    const record = normalizeMetric({ ...normalized, id } as unknown as Metric);
     return { ...current, metrics: upsertLocal(current.metrics, record, (item) => item.date === record.date).sort((a, b) => b.date.localeCompare(a.date)) };
   }
   if (resource === "journal") {
