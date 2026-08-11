@@ -1478,7 +1478,7 @@ function parseStoredData(raw: string): LifeData {
   return {
     habits: Array.isArray(parsed.habits) ? parsed.habits : starterData.habits,
     habitLogs: Array.isArray(parsed.habitLogs) ? parsed.habitLogs : [],
-    metrics: Array.isArray(parsed.metrics) ? parsed.metrics.map(normalizeMetric) : [],
+    metrics: Array.isArray(parsed.metrics) ? parsed.metrics.map(normalizeMetric).sort((a, b) => b.date.localeCompare(a.date)) : [],
     journals: Array.isArray(parsed.journals) ? parsed.journals : [],
     bullets: Array.isArray(parsed.bullets) ? parsed.bullets : [],
     programs: Array.isArray(parsed.programs) ? parsed.programs : [],
