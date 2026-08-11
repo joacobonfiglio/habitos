@@ -836,7 +836,7 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
     x: weightMetrics.length === 1 ? 360 : 42 + index * (636 / (weightMetrics.length - 1)),
     y: 196 - (((metric.weight as number) - chartMin) / Math.max(1, chartMax - chartMin)) * 148,
   }));
-  const moodDays = lastDays(madridDateKey(new Date()), 35);
+  const moodDays = lastDays(argentinaDateKey(new Date()), 35);
   const moodAverage = metrics.filter((metric) => metric.mood != null).length
     ? metrics.filter((metric) => metric.mood != null).reduce((sum, metric) => sum + (metric.mood ?? 0), 0) / metrics.filter((metric) => metric.mood != null).length
     : null;
@@ -848,7 +848,7 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
   const lowestScreenMetric = screenMetrics.length
     ? screenMetrics.reduce((lowest, metric) => Number(metric.screenTimeHours) < Number(lowest.screenTimeHours) ? metric : lowest)
     : null;
-  const currentDate = madridDateKey(new Date());
+  const currentDate = argentinaDateKey(new Date());
   const checkinStreak = streakStats(metrics.map((metric) => metric.date), currentDate);
   const weightStreak = streakStats(metrics.filter((metric) => metric.weight != null).map((metric) => metric.date), currentDate);
   const metricInsights = buildMetricInsights(data);
@@ -1494,7 +1494,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
   const id = localId(payload);
   if (resource === "habit") {
     const existing = current.habits.find((habit) => habit.id === id);
-    const record = { ...payload, id, createdAt: payload.createdAt || existing?.createdAt || madridDateKey(new Date()) } as unknown as Habit;
+    const record = { ...payload, id, createdAt: payload.createdAt || existing?.createdAt || argentinaDateKey(new Date()) } as unknown as Habit;
     return { ...current, habits: upsertLocal(current.habits, record) };
   }
   if (resource === "habitLog") {
@@ -1539,7 +1539,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, planGoals: upsertLocal(current.planGoals, record) };
   }
   if (resource === "planTask") {
-    const record = { ...payload, id, goalId: payload.goalId || null, projectId: payload.projectId || null, period: payload.period || (typeof payload.dueDate === "string" ? payload.dueDate.slice(0, 7) : madridDateKey(new Date()).slice(0, 7)), priority: payload.priority || "medium", dueDate: payload.dueDate || null } as unknown as PlanTask;
+    const record = { ...payload, id, goalId: payload.goalId || null, projectId: payload.projectId || null, period: payload.period || (typeof payload.dueDate === "string" ? payload.dueDate.slice(0, 7) : argentinaDateKey(new Date()).slice(0, 7)), priority: payload.priority || "medium", dueDate: payload.dueDate || null } as unknown as PlanTask;
     return { ...current, planTasks: upsertLocal(current.planTasks, record) };
   }
   if (resource === "focusSession") {
