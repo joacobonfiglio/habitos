@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./modern.css";
 import { PwaRegister } from "./pwa-register";
-import { NutritionNavLink } from "./nutrition-nav-link";
+import { LifeOSNavigationV2 } from "./lifeos-navigation-v2";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,7 +39,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PwaRegister />
-        <NutritionNavLink />
+        <LifeOSNavigationV2 />
         {children}
       </body>
     </html>
