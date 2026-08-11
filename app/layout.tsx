@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./modern.css";
+import "./module-actions.css";
 import { PwaRegister } from "./pwa-register";
 import { LifeOSNavigationV2 } from "./lifeos-navigation-v2";
 
