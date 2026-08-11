@@ -264,7 +264,7 @@ export default function HomePage() {
       if (syncError) { setCloudStatus("Error al recuperar"); return; }
       if (snapshot?.data) {
         const cloudData = parseStoredData(JSON.stringify(snapshot.data));
-        const merged = mergeLifeData(cloudData, dataRef.current);
+        const merged = mergeLifeData(cloudData, dataRef.current, prefersDesktopMaster());
         snapshotVersionRef.current = snapshot.updated_at ?? null;
         lastSyncedDataRef.current = JSON.stringify(cloudData);
         setData(merged);
@@ -306,7 +306,7 @@ export default function HomePage() {
         const { data: fresh, error: refreshError } = await supabase.from("lifeos_snapshots").select("data, updated_at").eq("user_id", cloudUserId).maybeSingle();
         if (refreshError || !fresh?.data) { setCloudStatus("Conflicto de sincronización"); return; }
         const cloudData = parseStoredData(JSON.stringify(fresh.data));
-        const merged = mergeLifeData(cloudData, data);
+        const merged = mergeLifeData(cloudData, data, prefersDesktopMaster());
         snapshotVersionRef.current = fresh.updated_at ?? null;
         lastSyncedDataRef.current = JSON.stringify(cloudData);
         setData(merged);
@@ -397,7 +397,7 @@ export default function HomePage() {
     if (syncError) { setCloudStatus("Error al recuperar"); return; }
     if (!snapshot?.data) { setCloudStatus("Sin copia en la nube"); return; }
     const cloudData = parseStoredData(JSON.stringify(snapshot.data));
-    const merged = mergeLifeData(cloudData, dataRef.current);
+    const merged = mergeLifeData(cloudData, dataRef.current, prefersDesktopMaster());
     snapshotVersionRef.current = snapshot.updated_at ?? null;
     lastSyncedDataRef.current = JSON.stringify(cloudData);
     setData(merged);
@@ -1614,29 +1614,35 @@ function removeLocalRecord(current: LifeData, resource: Resource, id: string): L
   return current;
 }
 
-function mergeRecords<T extends { id: string }>(cloud: T[], local: T[]) {
-  const cloudIds = new Set(cloud.map((item) => item.id));
-  return [...cloud, ...local.filter((item) => !cloudIds.has(item.id))];
+function prefersDesktopMaster() {
+  return typeof window !== "undefined" && window.matchMedia("(min-width: 900px) and (pointer: fine)").matches;
 }
 
-function mergeLifeData(cloud: LifeData, local: LifeData): LifeData {
+function mergeRecords<T extends { id: string }>(cloud: T[], local: T[], preferLocal = false) {
+  const primary = preferLocal ? local : cloud;
+  const secondary = preferLocal ? cloud : local;
+  const primaryIds = new Set(primary.map((item) => item.id));
+  return [...primary, ...secondary.filter((item) => !primaryIds.has(item.id))];
+}
+
+function mergeLifeData(cloud: LifeData, local: LifeData, preferLocal = false): LifeData {
   return {
-    habits: mergeRecords(cloud.habits, local.habits),
-    habitLogs: mergeRecords(cloud.habitLogs, local.habitLogs),
-    metrics: mergeRecords(cloud.metrics, local.metrics),
-    journals: mergeRecords(cloud.journals, local.journals),
-    bullets: mergeRecords(cloud.bullets, local.bullets),
-    programs: mergeRecords(cloud.programs, local.programs),
-    programLogs: mergeRecords(cloud.programLogs, local.programLogs),
-    projects: mergeRecords(cloud.projects, local.projects),
-    projectTasks: mergeRecords(cloud.projectTasks, local.projectTasks),
-    planGoals: mergeRecords(cloud.planGoals, local.planGoals),
-    planTasks: mergeRecords(cloud.planTasks, local.planTasks),
-    focusSessions: mergeRecords(cloud.focusSessions, local.focusSessions),
-    notes: mergeRecords(cloud.notes, local.notes),
-    bucketItems: mergeRecords(cloud.bucketItems, local.bucketItems),
-    gratitudes: mergeRecords(cloud.gratitudes, local.gratitudes),
-    mindNodes: mergeRecords(cloud.mindNodes, local.mindNodes),
+    habits: mergeRecords(cloud.habits, local.habits, preferLocal),
+    habitLogs: mergeRecords(cloud.habitLogs, local.habitLogs, preferLocal),
+    metrics: mergeRecords(cloud.metrics, local.metrics, preferLocal),
+    journals: mergeRecords(cloud.journals, local.journals, preferLocal),
+    bullets: mergeRecords(cloud.bullets, local.bullets, preferLocal),
+    programs: mergeRecords(cloud.programs, local.programs, preferLocal),
+    programLogs: mergeRecords(cloud.programLogs, local.programLogs, preferLocal),
+    projects: mergeRecords(cloud.projects, local.projects, preferLocal),
+    projectTasks: mergeRecords(cloud.projectTasks, local.projectTasks, preferLocal),
+    planGoals: mergeRecords(cloud.planGoals, local.planGoals, preferLocal),
+    planTasks: mergeRecords(cloud.planTasks, local.planTasks, preferLocal),
+    focusSessions: mergeRecords(cloud.focusSessions, local.focusSessions, preferLocal),
+    notes: mergeRecords(cloud.notes, local.notes, preferLocal),
+    bucketItems: mergeRecords(cloud.bucketItems, local.bucketItems, preferLocal),
+    gratitudes: mergeRecords(cloud.gratitudes, local.gratitudes, preferLocal),
+    mindNodes: mergeRecords(cloud.mindNodes, local.mindNodes, preferLocal),
   };
 }
 
