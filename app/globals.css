@@ -490,7 +490,7 @@ input, select { font: inherit; color: inherit; }
 .screen-bar-column small { margin: 3px 0 -22px; color: #9e9ca4; font-size: 7px; white-space: nowrap; }
 .history-card { overflow: hidden; }
 .history-table { margin-top: 16px; overflow-x: auto; }
-.history-head, .history-row { min-width: 760px; display: grid; grid-template-columns: 1.2fr repeat(5, 1fr) 72px; align-items: center; gap: 8px; }
+.history-head, .history-row { min-width: 860px; display: grid; grid-template-columns: 1.2fr repeat(6, 1fr) 72px; align-items: center; gap: 8px; }
 .history-head { min-height: 34px; color: #aaa8ad; border-bottom: 1px solid #e8e5df; font-size: 8px; font-weight: 750; text-transform: uppercase; }
 .history-row { min-height: 52px; border-bottom: 1px solid #efede8; color: #777780; font-size: 9.5px; }
 .history-row strong { color: #3c3e4d; }
