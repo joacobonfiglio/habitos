@@ -24,6 +24,7 @@ import {
   Home,
   ListTodo,
   Leaf,
+  LayoutDashboard,
   MapPin,
   Menu,
   Network,
@@ -1131,7 +1132,7 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
   onSave: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
   onDelete: (resource: Resource, id: string) => void;
 }) {
-  const [tab, setTab] = useState<"planning" | "sprint" | "projects" | "notes">("sprint");
+  const [tab, setTab] = useState<"overview" | "planning" | "sprint" | "projects" | "notes">("overview");
   const [selectedId, setSelectedId] = useState<string | null>(data.projects[0]?.id ?? null);
   const effectiveSelectedId = data.projects.some((project) => project.id === selectedId) ? selectedId : (data.projects[0]?.id ?? null);
   const selected = data.projects.find((project) => project.id === effectiveSelectedId) ?? null;
@@ -1144,8 +1145,8 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
 
   return <div className="page-content subpage">
     <section className="section-intro"><div><span className="section-label dark"><FolderKanban size={14} /> ESPACIO DE TRABAJO</span><h2>De la visión a lo que haces hoy</h2><p>Planifica objetivos, conviértelos en sprints y tareas, organiza tus proyectos y conserva las notas dentro del mismo sistema.</p></div><div className="intro-actions"><button className="outline-compact" onClick={() => onOpen({ kind: "note", projects: data.projects })}><StickyNote size={16} /> Nueva nota</button><button className="primary-button" onClick={() => onOpen({ kind: "project" })}><Plus size={17} /> Nuevo proyecto</button></div></section>
-    <div className="segmented program-tabs project-tabs"><button className={tab === "sprint" ? "active" : ""} onClick={() => setTab("sprint")}><CalendarDays size={14} /> Agenda semanal</button><button className={tab === "planning" ? "active" : ""} onClick={() => setTab("planning")}><Target size={14} /> Planificación</button><button className={tab === "projects" ? "active" : ""} onClick={() => setTab("projects")}><FolderKanban size={14} /> Proyectos</button><button className={tab === "notes" ? "active" : ""} onClick={() => setTab("notes")}><StickyNote size={14} /> Notas</button></div>
-    {tab === "projects" ? <>
+    <div className="segmented program-tabs project-tabs"><button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}><LayoutDashboard size={14} /> Vista general</button><button className={tab === "sprint" ? "active" : ""} onClick={() => setTab("sprint")}><CalendarDays size={14} /> Agenda semanal</button><button className={tab === "planning" ? "active" : ""} onClick={() => setTab("planning")}><Target size={14} /> Planificación</button><button className={tab === "projects" ? "active" : ""} onClick={() => setTab("projects")}><FolderKanban size={14} /> Proyectos</button><button className={tab === "notes" ? "active" : ""} onClick={() => setTab("notes")}><StickyNote size={14} /> Notas</button></div>
+    {tab === "overview" ? <WorkOverview data={data} today={today} onOpen={onOpen} onTab={setTab} /> : tab === "projects" ? <>
       <div className="project-library">
         {data.projects.map((project) => {
           const tasks = data.projectTasks.filter((task) => task.projectId === project.id);
@@ -1173,6 +1174,15 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
       {!data.projects.length && <section className="card"><EmptyState text="Todavía no tienes proyectos. Crea uno para convertir una idea en tareas concretas." action="Crear proyecto" onClick={() => onOpen({ kind: "project" })} /></section>}
     </> : tab === "sprint" ? <SprintWorkspace data={data} today={today} defaultProject={selected} onOpen={onOpen} onSave={onSave} onDelete={(id) => onDelete("projectTask", id)} /> : tab === "planning" ? <PlanningView data={data} today={today} embedded onOpen={onOpen} onSave={onSave} onDelete={onDelete} /> : <NotesLibrary notes={data.notes} projects={data.projects} onOpen={onOpen} onDelete={(id) => onDelete("note", id)} />}
   </div>;
+}
+
+function WorkOverview({ data, today, onOpen, onTab }: { data: LifeData; today: string; onOpen: (modal: Modal) => void; onTab: (tab: "overview" | "planning" | "sprint" | "projects" | "notes") => void }) {
+  const weekEnd = addDays(today, 6);
+  const todayTasks = data.projectTasks.filter((task) => task.status !== "done" && task.scheduledDate === today).sort(compareProjectTasks);
+  const upcoming = data.projectTasks.filter((task) => task.status !== "done" && task.scheduledDate && task.scheduledDate >= today && task.scheduledDate <= weekEnd).sort(compareProjectTasks).slice(0, 5);
+  const activeProjects = data.projects.filter((project) => project.status === "active");
+  const activeGoals = data.planGoals.filter((goal) => goal.status !== "done").slice(0, 3);
+  return <section className="work-overview"><div className="work-overview-hero"><div><span className="section-label dark"><LayoutDashboard size={14} /> TU CENTRO DE EJECUCIÓN</span><h3>De la dirección a la acción de hoy.</h3><p>Todo lo que ya registras en LifeOS, ordenado para decidir qué hacer ahora sin perder el contexto.</p></div><button className="primary-button" onClick={() => onOpen({ kind: "projectTask", projects: data.projects, defaultDate: today, defaultSprintWeek: startOfWeek(today) })}><Plus size={16} /> Planificar tarea</button></div><div className="work-overview-stats"><article><small>HOY</small><strong>{todayTasks.length}</strong><span>tareas programadas</span></article><article><small>ESTA SEMANA</small><strong>{upcoming.length}</strong><span>acciones pendientes</span></article><article><small>PROYECTOS ACTIVOS</small><strong>{activeProjects.length}</strong><span>en movimiento</span></article><article><small>OBJETIVOS ABIERTOS</small><strong>{activeGoals.length}</strong><span>con dirección</span></article></div><div className="work-overview-grid"><section className="card overview-today"><div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14} /> HOY</span><h3>Tus próximos pasos</h3></div><button className="add-inline top" onClick={() => onTab("sprint")}>Abrir agenda →</button></div>{todayTasks.map((task) => <button key={task.id} onClick={() => onOpen({ kind: "projectTask", projects: data.projects, record: task })}><span className={`priority-dot ${task.priority || "medium"}`} /><div><strong>{task.title}</strong><small>{data.projects.find((project) => project.id === task.projectId)?.title ?? "Sin proyecto"} · {task.estimatedMinutes != null ? formatMinutes(task.estimatedMinutes) : "Sin estimación"}</small></div><Edit3 size={14} /></button>)}{!todayTasks.length && <EmptyState text="No tienes tareas programadas para hoy." action="Planificar ahora" onClick={() => onOpen({ kind: "projectTask", projects: data.projects, defaultDate: today, defaultSprintWeek: startOfWeek(today) })} />}</section><section className="card overview-direction"><div className="card-heading"><div><span className="section-label dark"><Target size={14} /> DIRECCIÓN</span><h3>Lo que estás construyendo</h3></div><button className="add-inline top" onClick={() => onTab("planning")}>Ver objetivos →</button></div>{activeGoals.map((goal) => { const completion = goalCompletion(goal, data.planTasks); return <button key={goal.id} onClick={() => onOpen({ kind: "planGoal", projects: data.projects, record: goal })}><div><strong>{goal.title}</strong><small>{goal.scope === "year" ? "Anual" : goal.scope === "quarter" ? "Trimestral" : goal.scope === "month" ? "Mensual" : "Semanal"}</small></div>{completion.progress != null ? <span>{completion.progress}%</span> : <span>—</span>}</button>; })}{!activeGoals.length && <EmptyState text="Define un objetivo para orientar tus proyectos." action="Crear objetivo" onClick={() => onOpen({ kind: "planGoal", projects: data.projects, defaultScope: "month", defaultPeriod: today.slice(0, 7) })} />}</section></div></section>;
 }
 
 function SprintWorkspace({ data, today, defaultProject, onOpen, onSave, onDelete }: {
