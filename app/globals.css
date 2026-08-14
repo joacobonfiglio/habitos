@@ -980,3 +980,5 @@ input, select { font: inherit; color: inherit; }
   .local-storage-card { grid-template-columns: auto 1fr; }
   .local-storage-card .primary-button { grid-column: 1 / -1; width: 100%; }
 }
+
+.month-agenda-divider { margin: 22px 0 12px; padding-top: 18px; border-top: 1px dashed #ddd8cf; }.month-agenda-divider .section-label { display: flex; align-items: center; gap: 6px; }.month-agenda-divider h3 { margin: 5px 0 0; font-size: 15px; }
