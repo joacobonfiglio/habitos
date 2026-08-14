@@ -982,3 +982,5 @@ input, select { font: inherit; color: inherit; }
 }
 
 .month-agenda-divider { margin: 22px 0 12px; padding-top: 18px; border-top: 1px dashed #ddd8cf; }.month-agenda-divider .section-label { display: flex; align-items: center; gap: 6px; }.month-agenda-divider h3 { margin: 5px 0 0; font-size: 15px; }
+
+.sprint-day-agenda { width: 100%; display: grid; grid-template-columns: auto 1fr; gap: 5px; align-items: center; margin-top: 5px; padding: 6px; border: 1px solid #e0d0b8; border-left: 3px solid #b9854a; border-radius: 7px; background: #fff7ed; color: #694c2d; text-align: left; cursor: pointer; font-size: 8px; line-height: 1.2; }.sprint-day-agenda b { color: #9a6b36; font-size: 7px; }.sprint-day-agenda span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }.sprint-day-agenda.reminder { border-color: #c9d8e8; border-left-color: #7595b5; background: #eef6ff; color: #3f607f; }.sprint-day-agenda.reminder b { color: #627fa0; }
