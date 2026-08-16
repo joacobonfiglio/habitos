@@ -526,7 +526,8 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
   const activeProjects = data.projects.filter((project) => project.status === "active");
   const activeHabits = data.habits.filter((habit) => habit.active);
   const focusToday = data.focusSessions.filter((session) => session.date === today).reduce((sum, session) => sum + session.minutes, 0);
-  const weekEnd = addDays(today, 7);
+  const weekEnd = addDays(today, 6);
+  const weekTimelineDays = Array.from({ length: 7 }, (_, index) => addDays(today, index));
   const upcomingProjectTasks = data.projectTasks.filter((task) => task.status !== "done" && task.scheduledDate && task.scheduledDate >= today && task.scheduledDate <= weekEnd);
   const upcomingGoals = data.planGoals.filter((goal) => !goalCompletion(goal, data.planTasks, data.projectTasks).complete && goal.targetDate && goal.targetDate >= today && goal.targetDate <= weekEnd);
   const upcomingPlan = [
@@ -575,13 +576,9 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
             {!todayBullets.length && <EmptyState text="Tu lista está vacía. Añade una tarea, nota o evento." />}
           </section>
           <section className="card upcoming-plan-card">
-            <div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14} /> PRÓXIMOS 7 DÍAS</span><h3>Lo que viene esta semana</h3></div><button className="add-inline top" onClick={() => onNavigate("projects")}><Plus size={15} /> Tarea</button></div>
-            <div className="upcoming-plan-list">{upcomingPlan.map((item) => {
-              const project = data.projects.find((entry) => entry.id === item.projectId);
-              return <button key={`${item.type}-${item.id}`} onClick={() => onNavigate("projects")}><span className={`upcoming-date ${item.date === today ? "today" : ""}`}><strong>{item.date === today ? "HOY" : shortDay(item.date)}</strong><small>{item.date.slice(-2)}</small></span><span><strong>{item.title}</strong><small>{item.type}{project ? ` · ${project.title}` : ""}</small></span><ArrowRight size={15} /></button>;
-            })}</div>
-            {!upcomingPlan.length && <EmptyState text="No hay tareas de sprint ni objetivos durante los próximos siete días." action="Abrir sprint" onClick={() => onNavigate("projects")} />}
-            {!!upcomingPlan.length && <button className="text-button upcoming-all" onClick={() => onNavigate("projects")}>Abrir espacio de trabajo <ArrowRight size={14} /></button>}
+            <div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14} /> ESTA SEMANA</span><h3>Lo que tienes por delante</h3></div><button className="text-button" onClick={() => onNavigate("projects")}>Abrir planner <ArrowRight size={15} /></button></div>
+            <div className="dashboard-week-agenda">{weekTimelineDays.map((date) => { const items = upcomingProjectTasks.filter((task) => taskOccursOnDate(task, date)).sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || a.title.localeCompare(b.title, "es")); return <section className={\`dashboard-week-day \${date === today ? "today" : ""}\`} key={date}><header><strong>{date === today ? "HOY" : shortDay(date)}</strong><small>{new Date(\`\${date}T12:00:00Z\`).getUTCDate()}</small></header><div>{items.slice(0, 4).map((task) => <button className={\`dashboard-week-item \${task.itemType || "task"}\`} key={task.id} onClick={() => onNavigate("projects")}><b>{task.scheduledTime || (task.itemType === "event" ? "Evento" : task.itemType === "reminder" ? "Recordatorio" : "Tarea")}</b><span>{task.title}</span></button>)}{items.length > 4 && <small className="dashboard-week-more">+{items.length - 4} más</small>}{!items.length && <small className="dashboard-week-empty">—</small>}</div></section>; })}</div>
+            {!upcomingProjectTasks.length && <EmptyState text="No tienes tareas, eventos ni recordatorios programados para los próximos 7 días." action="Abrir planner" onClick={() => onNavigate("projects")} />}
           </section>
         </div>
         <div className="right-column">
