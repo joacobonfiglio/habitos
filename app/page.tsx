@@ -442,6 +442,8 @@ export default function HomePage() {
     setMobileMenuOpen(false);
   }
 
+  if (loading) return <div className="app-loading-shell"><LoadingState /></div>;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -471,8 +473,7 @@ export default function HomePage() {
         </header>
 
         {error && <div className="error-banner">{error}</div>}
-        {loading ? <LoadingState /> : (
-          <>
+        <>
             {view === "today" && <TodayView data={data} today={today} onToggleHabit={toggleHabit} onToggleBullet={toggleBullet} onNavigate={navigate} onOpen={setModal} />}
             {view === "focus" && <FocusView data={data} today={today} onSave={save} onDelete={(id) => remove("focusSession", id)} />}
             {view === "habits" && <HabitsView data={data} today={today} onToggle={toggleHabit} onOpen={setModal} onDelete={(id) => remove("habit", id)} />}
@@ -485,7 +486,6 @@ export default function HomePage() {
             {view === "bucket" && <BucketListView items={data.bucketItems} today={today} onOpen={setModal} onSave={save} onDelete={(id) => remove("bucketItem", id)} />}
             {view === "more" && <MoreView data={data} onNavigate={navigate} onDownload={downloadData} onImport={importBackup} cloudUser={cloudUser} cloudStatus={cloudStatus} onLogin={loginWithGoogle} onLogout={logoutCloud} onPush={pushCloud} onPull={pullCloud} />}
           </>
-        )}
       </main>
 
       <nav className="mobile-nav" aria-label="Navegación móvil">
