@@ -343,6 +343,7 @@ button { color: inherit; }
   .state-score { min-height: 112px; }
   .change-grid { grid-template-columns: repeat(2, 1fr); }
   .conditions-grid { grid-template-columns: 1fr; }
+  .intelligence-patterns .insight-list { grid-template-columns: 1fr; }
   .bar-chart-with-axis { grid-template-columns: 29px minmax(0, 1fr); }
   body { background: #f7f5f0; }
   .sidebar { display: none; }
@@ -518,6 +519,10 @@ input, select { font: inherit; color: inherit; }
 .conditions-grid article { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 15px; border: 1px solid #e8e4df; border-radius: 14px; background: rgba(255,254,250,.9); }
 .condition-icon { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 11px; }.condition-icon.mint { color: #5d8577; background: #e3efea; }.condition-icon.sand { color: #92764f; background: #f3ead8; }
 .conditions-grid strong { font-size: 9.5px; }.conditions-grid p { margin: 5px 0 0; color: #77747f; font-size: 8.5px; line-height: 1.55; }
+.intelligence-patterns { margin-top: 18px; padding-top: 18px; border-top: 1px solid #e4dfe7; }
+.intelligence-patterns .insight-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.metrics-streak-card { margin-top: 18px; }
+.metrics-streak-card .streak-stat-grid { max-width: 420px; }
 .metrics-insight-grid { display: grid; grid-template-columns: minmax(230px, .65fr) minmax(0, 1.7fr); gap: 18px; margin-top: 18px; }
 .streak-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
 .streak-stat-grid > div { padding: 16px; border-radius: 14px; background: #f4f1f7; }

@@ -901,6 +901,10 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
         <article><span className="condition-icon mint"><Trophy size={18} /></span><div><strong>Tus mejores condiciones</strong><p>{intelligence.bestConditions}</p></div></article>
         <article><span className="condition-icon sand"><Target size={18} /></span><div><strong>Oportunidad de mejora</strong><p>{intelligence.opportunity}</p></div></article>
       </div>
+      <div className="intelligence-patterns">
+        <div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> PATRONES</span><h3>Qué parece influir en vos</h3><p>Solo mostramos asociaciones con una muestra mínima; no implican causalidad.</p></div></div>
+        <div className="insight-list">{intelligence.patterns.map((insight) => <article key={insight.title}><span className={`insight-icon ${insight.color}`}>{insight.icon}</span><div><strong>{insight.title}</strong><p>{insight.text}</p><small>{insight.sample}</small></div></article>)}</div>
+      </div>
     </section>
     <div className="visual-metrics-grid">
       <section className="card weight-chart-card">
@@ -946,10 +950,7 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
       </div>
       {!metrics.length && <EmptyState text="Aún no hay métricas. Tu primer registro solo lleva un minuto." action="Crear registro" onClick={() => onOpen({ kind: "metric" })} />}
     </section>
-    <div className="metrics-insight-grid">
-      <section className="card streak-card"><div className="card-heading"><div><span className="section-label dark"><Flame size={14} /> CONSTANCIA</span><h3>Rachas de registro</h3></div></div><div className="streak-stat-grid"><div><strong>{checkinStreak.current}</strong><span>check-in actual</span><small>Mejor: {checkinStreak.best} días</small></div><div><strong>{weightStreak.current}</strong><span>peso actual</span><small>Mejor: {weightStreak.best} días</small></div></div></section>
-      <section className="card correlation-card"><div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> PATRONES</span><h3>Qué parece influir en vos</h3><p>Solo mostramos asociaciones con una muestra mínima; no implican causalidad.</p></div></div><div className="insight-list">{intelligence.patterns.map((insight) => <article key={insight.title}><span className={`insight-icon ${insight.color}`}>{insight.icon}</span><div><strong>{insight.title}</strong><p>{insight.text}</p><small>{insight.sample}</small></div></article>)}</div></section>
-    </div>
+    <section className="card streak-card metrics-streak-card"><div className="card-heading"><div><span className="section-label dark"><Flame size={14} /> CONSTANCIA</span><h3>Rachas de registro</h3></div></div><div className="streak-stat-grid"><div><strong>{checkinStreak.current}</strong><span>check-in actual</span><small>Mejor: {checkinStreak.best} días</small></div><div><strong>{weightStreak.current}</strong><span>peso actual</span><small>Mejor: {weightStreak.best} días</small></div></div></section>
   </div>;
 }
 
