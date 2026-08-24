@@ -319,6 +319,7 @@ button { color: inherit; }
   .right-column { display: grid; grid-template-columns: 1fr 1fr; }
   .experiment-card { grid-column: 1 / -1; }
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .change-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .calendar-layout, .journal-layout { grid-template-columns: 1fr; }
   .agenda-summary { display: none; }
   .module-grid { grid-template-columns: repeat(2, 1fr); }
@@ -336,6 +337,12 @@ button { color: inherit; }
 @media (max-width: 760px) {
   .weekly-life-grid { grid-template-columns: repeat(2, 1fr); }
   .metrics-insight-grid { grid-template-columns: 1fr; }
+  .intelligence-heading { display: grid; }
+  .intelligence-period { width: 100%; }.intelligence-period button { flex: 1; }
+  .intelligence-overview { grid-template-columns: 1fr; }
+  .state-score { min-height: 112px; }
+  .change-grid { grid-template-columns: repeat(2, 1fr); }
+  .conditions-grid { grid-template-columns: 1fr; }
   .bar-chart-with-axis { grid-template-columns: 29px minmax(0, 1fr); }
   body { background: #f7f5f0; }
   .sidebar { display: none; }
@@ -494,6 +501,23 @@ input, select { font: inherit; color: inherit; }
 .history-head { min-height: 34px; color: #aaa8ad; border-bottom: 1px solid #e8e5df; font-size: 8px; font-weight: 750; text-transform: uppercase; }
 .history-row { min-height: 52px; border-bottom: 1px solid #efede8; color: #777780; font-size: 9.5px; }
 .history-row strong { color: #3c3e4d; }
+.intelligence-card { margin: 18px 0; overflow: hidden; background: linear-gradient(145deg, #fffefa 0%, #f6f2fb 100%); }
+.intelligence-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.intelligence-heading h3 { margin: 6px 0 4px; font-family: Georgia, serif; font-size: 24px; font-weight: 500; }
+.intelligence-heading p { margin: 0; color: #898691; font-size: 8.5px; line-height: 1.5; }
+.intelligence-period { flex: 0 0 auto; }
+.intelligence-overview { display: grid; grid-template-columns: 165px minmax(0, 1fr); gap: 14px; margin-top: 20px; }
+.state-score { min-height: 126px; display: flex; flex-direction: column; justify-content: center; padding: 18px; border-radius: 16px; color: #fff; background: linear-gradient(145deg, #22253e, #343756); box-shadow: 0 13px 28px rgba(30,33,57,.16); }
+.state-score span, .state-score small { color: #d3d1de; font-size: 8px; }.state-score span { font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
+.state-score strong { margin: 5px 0 3px; font-family: Georgia, serif; font-size: 40px; font-weight: 500; line-height: 1; }
+.change-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.change-grid article { min-width: 0; padding: 15px 13px; border: 1px solid #e7e2e9; border-radius: 14px; background: rgba(255,255,255,.82); }
+.change-grid span, .change-grid strong, .change-grid small { display: block; }.change-grid span { color: #8b8992; font-size: 8px; }.change-grid strong { margin: 7px 0 5px; color: #343547; font-family: Georgia, serif; font-size: 20px; font-weight: 500; }
+.change-grid small { font-size: 7px; line-height: 1.35; }.change-grid small.positive { color: #4f806e; }.change-grid small.negative { color: #a66368; }.change-grid small.neutral { color: #98959e; }
+.conditions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.conditions-grid article { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 15px; border: 1px solid #e8e4df; border-radius: 14px; background: rgba(255,254,250,.9); }
+.condition-icon { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 11px; }.condition-icon.mint { color: #5d8577; background: #e3efea; }.condition-icon.sand { color: #92764f; background: #f3ead8; }
+.conditions-grid strong { font-size: 9.5px; }.conditions-grid p { margin: 5px 0 0; color: #77747f; font-size: 8.5px; line-height: 1.55; }
 .metrics-insight-grid { display: grid; grid-template-columns: minmax(230px, .65fr) minmax(0, 1.7fr); gap: 18px; margin-top: 18px; }
 .streak-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
 .streak-stat-grid > div { padding: 16px; border-radius: 14px; background: #f4f1f7; }
@@ -503,10 +527,19 @@ input, select { font: inherit; color: inherit; }
 .insight-list article { display: grid; grid-template-columns: auto 1fr; gap: 11px; padding: 12px; border: 1px solid #ebe8e2; border-radius: 13px; background: #fffefa; }
 .insight-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; }.insight-icon.lilac { color: #756da2; background: #eeeaf6; }.insight-icon.rose { color: #9a686f; background: #f5e5e5; }.insight-icon.mint { color: #5d8577; background: #e3efea; }
 .insight-list strong { font-size: 9.5px; }.insight-list p { margin: 4px 0; color: #73717d; font-size: 8.5px; line-height: 1.5; }.insight-list small { color: #aaa7ae; font-size: 7px; }
+.insight-icon.sand { color: #92764f; background: #f3ead8; }
 
 .date-input, .journal-title, .record-form input, .record-form select, .record-form textarea {
   width: 100%; border: 1px solid #dedbd4; border-radius: 10px; outline: 0; background: #fff;
 }
+.checkin-divider { display: grid; gap: 3px; margin: 8px 0 2px; padding: 14px 15px; border-radius: 12px; background: #f2eff7; }
+.checkin-divider strong { color: #4d4a5f; font-size: 10px; }.checkin-divider span { color: #8d8997; font-size: 8px; line-height: 1.45; }
+.contextual-grid { margin-top: 6px; }
+.context-fieldset { margin: 4px 0 8px; padding: 0; border: 0; }
+.context-fieldset legend { margin-bottom: 9px; color: #73707d; font-size: 9px; font-weight: 700; }
+.context-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.context-chips button { min-height: 31px; padding: 0 11px; border: 1px solid #dfdbe2; border-radius: 999px; color: #777381; background: #fff; font-size: 8px; cursor: pointer; }
+.context-chips button.selected { color: #fff; border-color: #77709c; background: #77709c; box-shadow: 0 4px 10px rgba(119,112,156,.18); }
 .date-input { width: auto; padding: 7px 9px; color: #827d91; font-size: 9px; }
 .journal-title { margin-top: 22px; padding: 12px 14px; border-color: #e5e2db; font-family: Georgia, serif; font-size: 18px; }
 .writing-card > textarea { min-height: 260px; }

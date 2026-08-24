@@ -85,7 +85,9 @@ type HabitLog = { id: string; habitId: string; date: string; done: boolean; note
 type Metric = {
   id: string; date: string; weight: number | null; mood: number | null; energy: number | null;
   sleepHours: number | null; sleepQuality: number | null; stress: number | null;
-  exerciseMinutes: number | null; activeCalories: number | null; screenTimeHours: number | null; notes: string;
+  exerciseMinutes: number | null; activeCalories: number | null; screenTimeHours: number | null;
+  productivity: number | null; daySatisfaction: number | null; nutritionQuality: number | null;
+  socialConnection: number | null; wakeFeeling: number | null; contextTags: string[]; notes: string;
 };
 type Journal = {
   id: string; date: string; title: string; content: string; win: string; learning: string; tomorrow: string;
@@ -844,6 +846,7 @@ function HabitsView({ data, today, onToggle, onOpen, onDelete }: {
 }
 
 function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (modal: Modal) => void; onDelete: (id: string) => void }) {
+  const [insightsPeriod, setInsightsPeriod] = useState<7 | 30 | 90>(30);
   const metrics = data.metrics;
   const latest = metrics[0];
   const previous = metrics[1];
@@ -874,9 +877,9 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
   const currentDate = argentinaDateKey(new Date());
   const checkinStreak = streakStats(metrics.map((metric) => metric.date), currentDate);
   const weightStreak = streakStats(metrics.filter((metric) => metric.weight != null).map((metric) => metric.date), currentDate);
-  const metricInsights = buildMetricInsights(data);
+  const intelligence = buildMetricIntelligence(data, insightsPeriod);
   return <div className="page-content subpage">
-    <section className="section-intro"><div><span className="section-label dark"><BarChart3 size={14} /> KPIs DE BIENESTAR</span><h2>Mide para entenderte, no para juzgarte</h2><p>Peso, ánimo, energía, sueño, estrés, movimiento, calorías activas y tiempo de pantalla en un registro diario.</p></div><button className="primary-button" onClick={() => onOpen({ kind: "metric" })}><Plus size={17} /> Registrar hoy</button></section>
+    <section className="section-intro"><div><span className="section-label dark"><BarChart3 size={14} /> TENDENCIAS E INSIGHTS</span><h2>Entiende qué te ayuda a crecer</h2><p>LifeOS cruza tu bienestar, hábitos, foco y productividad para convertir tus registros en decisiones concretas.</p></div><button className="primary-button" onClick={() => onOpen({ kind: "metric" })}><Plus size={17} /> Registrar hoy</button></section>
     <div className="metrics-grid metrics-live">
       <MetricCard icon={<Scale size={19} />} label="Peso" value={metricValue(latest?.weight, "kg")} note={weightChange(latest, previous)} color="lilac" />
       <MetricCard icon={<Heart size={19} />} label="Ánimo" value={latest?.mood == null ? missingValue : `${moodEmoji(latest.mood)} ${latest.mood}/5`} note={latest ? formatShortDate(latest.date) : missingValue} color="rose" />
@@ -885,6 +888,20 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
       <MetricCard icon={<Flame size={19} />} label="Calorías activas" value={metricValue(latest?.activeCalories, "kcal")} note={latest?.exerciseMinutes == null ? missingValue : `${formatNumber(latest.exerciseMinutes)} min de ejercicio`} color="sand" />
       <MetricCard icon={<Smartphone size={19} />} label="Tiempo de pantalla" value={latest?.screenTimeHours == null ? missingValue : formatDuration(latest.screenTimeHours)} note={screenAverage == null ? missingValue : `Media ${formatDuration(screenAverage)}`} color="lilac" />
     </div>
+    <section className="card intelligence-card">
+      <div className="intelligence-heading">
+        <div><span className="section-label dark"><Sparkles size={14} /> TU ESTADO ACTUAL</span><h3>Una lectura de tus últimos {insightsPeriod} días</h3><p>Comparada con tu propio historial. No es una evaluación médica ni una puntuación de rendimiento.</p></div>
+        <div className="segmented intelligence-period" aria-label="Periodo de análisis">{([7, 30, 90] as const).map((period) => <button className={insightsPeriod === period ? "active" : ""} onClick={() => setInsightsPeriod(period)} key={period}>{period} días</button>)}</div>
+      </div>
+      <div className="intelligence-overview">
+        <div className="state-score"><span>Índice personal</span><strong>{intelligence.score == null ? "—" : intelligence.score}</strong><small>{intelligence.score == null ? `Faltan ${Math.max(0, 5 - intelligence.sampleDays)} registros` : intelligence.scoreLabel}</small></div>
+        <div className="change-grid">{intelligence.changes.map((change) => <article key={change.label}><span>{change.label}</span><strong>{change.value}</strong><small className={change.tone}>{change.delta}</small></article>)}</div>
+      </div>
+      <div className="conditions-grid">
+        <article><span className="condition-icon mint"><Trophy size={18} /></span><div><strong>Tus mejores condiciones</strong><p>{intelligence.bestConditions}</p></div></article>
+        <article><span className="condition-icon sand"><Target size={18} /></span><div><strong>Oportunidad de mejora</strong><p>{intelligence.opportunity}</p></div></article>
+      </div>
+    </section>
     <div className="visual-metrics-grid">
       <section className="card weight-chart-card">
         <div className="card-heading"><div><span className="section-label dark"><TrendingUp size={14} /> EVOLUCIÓN DEL PESO</span><h3>Variación en el tiempo</h3></div><div className="chart-summary"><strong>{latest?.weight == null ? "—" : `${formatNumber(latest.weight)} kg`}</strong><span>{weightChange(latest, previous)}</span></div></div>
@@ -931,7 +948,7 @@ function MetricsView({ data, onOpen, onDelete }: { data: LifeData; onOpen: (moda
     </section>
     <div className="metrics-insight-grid">
       <section className="card streak-card"><div className="card-heading"><div><span className="section-label dark"><Flame size={14} /> CONSTANCIA</span><h3>Rachas de registro</h3></div></div><div className="streak-stat-grid"><div><strong>{checkinStreak.current}</strong><span>check-in actual</span><small>Mejor: {checkinStreak.best} días</small></div><div><strong>{weightStreak.current}</strong><span>peso actual</span><small>Mejor: {weightStreak.best} días</small></div></div></section>
-      <section className="card correlation-card"><div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> INSIGHTS</span><h3>Patrones en tus datos</h3><p>Asociaciones descriptivas; no implican causalidad.</p></div></div><div className="insight-list">{metricInsights.map((insight) => <article key={insight.title}><span className={`insight-icon ${insight.color}`}>{insight.icon}</span><div><strong>{insight.title}</strong><p>{insight.text}</p><small>{insight.sample}</small></div></article>)}</div></section>
+      <section className="card correlation-card"><div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> PATRONES</span><h3>Qué parece influir en vos</h3><p>Solo mostramos asociaciones con una muestra mínima; no implican causalidad.</p></div></div><div className="insight-list">{intelligence.patterns.map((insight) => <article key={insight.title}><span className={`insight-icon ${insight.color}`}>{insight.icon}</span><div><strong>{insight.title}</strong><p>{insight.text}</p><small>{insight.sample}</small></div></article>)}</div></section>
     </div>
   </div>;
 }
@@ -1367,8 +1384,44 @@ function HabitForm({ record, busy, onSubmit }: { record?: Habit; busy: boolean; 
 }
 
 function MetricForm({ record, today, busy, onSubmit }: { record?: Metric; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
-  const [form, setForm] = useState({ id: record?.id, date: record?.date ?? today, weight: record?.weight ?? "", mood: record?.mood ?? 3, energy: record?.energy ?? 5, sleepHours: record?.sleepHours ?? "", sleepQuality: record?.sleepQuality ?? "", stress: record?.stress ?? 5, exerciseMinutes: record?.exerciseMinutes ?? "", activeCalories: record?.activeCalories ?? "", screenTimeHours: record?.screenTimeHours ?? "", notes: record?.notes ?? "" });
-  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><label>Fecha<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label><div className="form-grid"><label>Peso (kg)<input type="number" step="0.1" min="20" max="350" value={form.weight} onChange={(event) => setForm({ ...form, weight: event.target.value })} placeholder="95,4" /></label><label>Sueño (horas)<input type="number" step="0.1" min="0" max="24" value={form.sleepHours} onChange={(event) => setForm({ ...form, sleepHours: event.target.value })} placeholder="7,5" /></label><label>Calidad del sueño (%)<input type="number" min="1" max="100" step="1" value={form.sleepQuality} onChange={(event) => setForm({ ...form, sleepQuality: event.target.value })} placeholder="Ej. 82" /><small className="field-help">Usa el porcentaje que registra tu reloj.</small></label><label>Ejercicio (min)<input type="number" min="0" max="600" value={form.exerciseMinutes} onChange={(event) => setForm({ ...form, exerciseMinutes: event.target.value })} placeholder="30" /></label><label>Calorías activas (kcal)<input type="number" min="0" max="10000" value={form.activeCalories} onChange={(event) => setForm({ ...form, activeCalories: event.target.value })} placeholder="Ej. 420" /><small className="field-help">Usa las calorías activas que registra tu reloj o móvil.</small></label><label>Tiempo de pantalla (horas)<input type="number" step="0.1" min="0" max="24" value={form.screenTimeHours} onChange={(event) => setForm({ ...form, screenTimeHours: event.target.value })} placeholder="Ej. 4,5" /><small className="field-help">Puedes verlo en Bienestar digital o Tiempo de uso de tu móvil.</small></label></div><RangeField label={`Ánimo ${form.mood}/5`} min={1} max={5} value={Number(form.mood)} onChange={(value) => setForm({ ...form, mood: value })} /><RangeField label={`Energía ${form.energy}/10`} min={1} max={10} value={Number(form.energy)} onChange={(value) => setForm({ ...form, energy: value })} /><RangeField label={`Estrés ${form.stress}/10`} min={1} max={10} value={Number(form.stress)} onChange={(value) => setForm({ ...form, stress: value })} /><label>Notas<textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Cómo te has sentido, contexto o algo a recordar…" /></label><SubmitButton busy={busy} label="Guardar métricas" /></form>;
+  const [form, setForm] = useState({
+    id: record?.id, date: record?.date ?? today, weight: record?.weight ?? "", mood: record?.mood ?? 3,
+    energy: record?.energy ?? 5, sleepHours: record?.sleepHours ?? "", sleepQuality: record?.sleepQuality ?? "",
+    stress: record?.stress ?? 5, exerciseMinutes: record?.exerciseMinutes ?? "", activeCalories: record?.activeCalories ?? "",
+    screenTimeHours: record?.screenTimeHours ?? "", productivity: record?.productivity ?? 5,
+    daySatisfaction: record?.daySatisfaction ?? 5, nutritionQuality: record?.nutritionQuality ?? "",
+    socialConnection: record?.socialConnection ?? "", wakeFeeling: record?.wakeFeeling ?? "",
+    contextTags: record?.contextTags ?? [], notes: record?.notes ?? "",
+  });
+  const contextOptions = ["Trabajo intenso", "Fin de semana", "Viaje", "Estrés externo", "Enfermedad", "Alcohol", "Día social", "Descanso"];
+  function toggleContext(tag: string) {
+    setForm({ ...form, contextTags: form.contextTags.includes(tag) ? form.contextTags.filter((item) => item !== tag) : [...form.contextTags, tag] });
+  }
+  return <form className="record-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}>
+    <label>Fecha<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></label>
+    <div className="form-grid">
+      <label>Peso (kg)<input type="number" step="0.1" min="20" max="350" value={form.weight} onChange={(event) => setForm({ ...form, weight: event.target.value })} placeholder="95,4" /></label>
+      <label>Sueño (horas)<input type="number" step="0.1" min="0" max="24" value={form.sleepHours} onChange={(event) => setForm({ ...form, sleepHours: event.target.value })} placeholder="7,5" /></label>
+      <label>Calidad del sueño (%)<input type="number" min="1" max="100" step="1" value={form.sleepQuality} onChange={(event) => setForm({ ...form, sleepQuality: event.target.value })} placeholder="Ej. 82" /><small className="field-help">Usa el porcentaje que registra tu reloj.</small></label>
+      <label>Ejercicio (min)<input type="number" min="0" max="600" value={form.exerciseMinutes} onChange={(event) => setForm({ ...form, exerciseMinutes: event.target.value })} placeholder="30" /></label>
+      <label>Calorías activas (kcal)<input type="number" min="0" max="10000" value={form.activeCalories} onChange={(event) => setForm({ ...form, activeCalories: event.target.value })} placeholder="Ej. 420" /><small className="field-help">Usa las calorías activas que registra tu reloj o móvil.</small></label>
+      <label>Tiempo de pantalla (horas)<input type="number" step="0.1" min="0" max="24" value={form.screenTimeHours} onChange={(event) => setForm({ ...form, screenTimeHours: event.target.value })} placeholder="Ej. 4,5" /><small className="field-help">Puedes verlo en Bienestar digital o Tiempo de uso de tu móvil.</small></label>
+    </div>
+    <div className="checkin-divider"><strong>Cómo viviste el día</strong><span>Estas respuestas permiten encontrar qué condiciones te ayudan a rendir y sentirte mejor.</span></div>
+    <RangeField label={`Ánimo ${form.mood}/5`} min={1} max={5} value={Number(form.mood)} onChange={(value) => setForm({ ...form, mood: value })} />
+    <RangeField label={`Energía ${form.energy}/10`} min={1} max={10} value={Number(form.energy)} onChange={(value) => setForm({ ...form, energy: value })} />
+    <RangeField label={`Estrés ${form.stress}/10`} min={1} max={10} value={Number(form.stress)} onChange={(value) => setForm({ ...form, stress: value })} />
+    <RangeField label={`Productividad percibida ${form.productivity}/10`} min={1} max={10} value={Number(form.productivity)} onChange={(value) => setForm({ ...form, productivity: value })} />
+    <RangeField label={`Satisfacción con el día ${form.daySatisfaction}/10`} min={1} max={10} value={Number(form.daySatisfaction)} onChange={(value) => setForm({ ...form, daySatisfaction: value })} />
+    <div className="form-grid contextual-grid">
+      <label>Alimentación<select value={form.nutritionQuality} onChange={(event) => setForm({ ...form, nutritionQuality: event.target.value })}><option value="">Sin registrar</option><option value="1">Mala</option><option value="2">Regular</option><option value="3">Buena</option><option value="4">Muy buena</option></select></label>
+      <label>Conexión social<select value={form.socialConnection} onChange={(event) => setForm({ ...form, socialConnection: event.target.value })}><option value="">Sin registrar</option><option value="1">Baja</option><option value="2">Media</option><option value="3">Alta</option></select></label>
+      <label>Al despertar<select value={form.wakeFeeling} onChange={(event) => setForm({ ...form, wakeFeeling: event.target.value })}><option value="">Sin registrar</option><option value="1">Cansado</option><option value="2">Normal</option><option value="3">Recuperado</option></select></label>
+    </div>
+    <fieldset className="context-fieldset"><legend>Contexto del día</legend><div className="context-chips">{contextOptions.map((tag) => <button type="button" className={form.contextTags.includes(tag) ? "selected" : ""} aria-pressed={form.contextTags.includes(tag)} onClick={() => toggleContext(tag)} key={tag}>{tag}</button>)}</div></fieldset>
+    <label>Notas<textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Cómo te has sentido, contexto o algo a recordar…" /></label>
+    <SubmitButton busy={busy} label="Guardar métricas" />
+  </form>;
 }
 
 function BulletForm({ record, today, busy, onSubmit }: { record?: BulletItem; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
@@ -1559,7 +1612,17 @@ function parseStoredData(raw: string): LifeData {
 
 function normalizeMetric(metric: Metric | (Partial<Metric> & { id: string; date: string })) : Metric {
   const { waterLiters: _removedWaterMetric, ...rest } = metric as Metric & { waterLiters?: unknown };
-  return { ...rest, weight: nullableNumber(rest.weight), mood: nullableNumber(rest.mood), energy: nullableNumber(rest.energy), sleepHours: nullableNumber(rest.sleepHours), sleepQuality: nullableNumber(rest.sleepQuality), stress: nullableNumber(rest.stress), exerciseMinutes: nullableNumber(rest.exerciseMinutes), activeCalories: nullableNumber(rest.activeCalories), screenTimeHours: nullableNumber(rest.screenTimeHours), notes: typeof rest.notes === "string" ? rest.notes : "" } as Metric;
+  return {
+    ...rest,
+    weight: nullableNumber(rest.weight), mood: nullableNumber(rest.mood), energy: nullableNumber(rest.energy),
+    sleepHours: nullableNumber(rest.sleepHours), sleepQuality: nullableNumber(rest.sleepQuality), stress: nullableNumber(rest.stress),
+    exerciseMinutes: nullableNumber(rest.exerciseMinutes), activeCalories: nullableNumber(rest.activeCalories),
+    screenTimeHours: nullableNumber(rest.screenTimeHours), productivity: nullableNumber(rest.productivity),
+    daySatisfaction: nullableNumber(rest.daySatisfaction), nutritionQuality: nullableNumber(rest.nutritionQuality),
+    socialConnection: nullableNumber(rest.socialConnection), wakeFeeling: nullableNumber(rest.wakeFeeling),
+    contextTags: Array.isArray(rest.contextTags) ? rest.contextTags.filter((tag): tag is string => typeof tag === "string") : [],
+    notes: typeof rest.notes === "string" ? rest.notes : "",
+  } as Metric;
 }
 
 function localId(payload: Record<string, unknown>) {
@@ -1586,7 +1649,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, habitLogs: upsertLocal(current.habitLogs, record, (item) => item.habitId === record.habitId && item.date === record.date) };
   }
   if (resource === "metric") {
-    const numericFields = ["weight", "mood", "energy", "sleepHours", "sleepQuality", "stress", "exerciseMinutes", "activeCalories", "screenTimeHours"] as const;
+    const numericFields = ["weight", "mood", "energy", "sleepHours", "sleepQuality", "stress", "exerciseMinutes", "activeCalories", "screenTimeHours", "productivity", "daySatisfaction", "nutritionQuality", "socialConnection", "wakeFeeling"] as const;
     const normalized = { ...payload };
     numericFields.forEach((field) => { normalized[field] = nullableNumber(payload[field]); });
     delete normalized.waterLiters;
@@ -1806,7 +1869,135 @@ function average(values: Array<number | null | undefined>) {
   return present.length ? present.reduce((sum, value) => sum + value, 0) / present.length : null;
 }
 
-function buildMetricInsights(data: LifeData) {
+function buildMetricIntelligence(data: LifeData, period: 7 | 30 | 90) {
+  const today = argentinaDateKey(new Date());
+  const periodStart = addDays(today, -(period - 1));
+  const previousStart = addDays(periodStart, -period);
+  const previousEnd = addDays(periodStart, -1);
+  const enrichMetric = (metric: Metric) => ({
+    ...metric,
+    focusMinutes: data.focusSessions.filter((session) => session.date === metric.date).reduce((sum, session) => sum + session.minutes, 0),
+    habitsDone: data.habitLogs.filter((log) => log.date === metric.date && log.done).length,
+    tasksDone: data.projectTasks.filter((task) => task.completedAt === metric.date && task.itemType !== "event" && task.itemType !== "reminder").length,
+  });
+  const current = data.metrics.filter((metric) => metric.date >= periodStart && metric.date <= today).map(enrichMetric);
+  const previous = data.metrics.filter((metric) => metric.date >= previousStart && metric.date <= previousEnd).map(enrichMetric);
+  type DailySignal = ReturnType<typeof enrichMetric>;
+  const numericAverage = (items: DailySignal[], getValue: (item: DailySignal) => number | null) => average(items.map(getValue));
+  const scoreValues = current.flatMap((metric) => [
+    metric.mood == null ? null : metric.mood * 20,
+    metric.energy == null ? null : metric.energy * 10,
+    metric.stress == null ? null : (11 - metric.stress) * 10,
+    metric.sleepQuality,
+    metric.productivity == null ? null : metric.productivity * 10,
+    metric.daySatisfaction == null ? null : metric.daySatisfaction * 10,
+  ]).filter((value): value is number => value != null && Number.isFinite(value));
+  const rawScore = average(scoreValues);
+  const score = current.length >= 5 && rawScore != null ? Math.round(rawScore) : null;
+  const scoreLabel = score == null ? "Aún sin muestra suficiente" : score >= 80 ? "Etapa muy sólida" : score >= 65 ? "Buen equilibrio" : score >= 50 ? "Con margen de mejora" : "Conviene bajar el ritmo y observar";
+
+  const makeChange = (label: string, getValue: (item: DailySignal) => number | null, unit: string, inverse = false) => {
+    const now = numericAverage(current, getValue);
+    const before = numericAverage(previous, getValue);
+    if (now == null) return { label, value: "—", delta: "Sin datos", tone: "neutral" };
+    if (before == null) return { label, value: `${formatNumber(now)}${unit}`, delta: "Sin periodo anterior", tone: "neutral" };
+    const delta = now - before;
+    const adjusted = inverse ? -delta : delta;
+    return {
+      label,
+      value: `${formatNumber(now)}${unit}`,
+      delta: Math.abs(delta) < .05 ? "Sin cambios" : `${delta > 0 ? "+" : ""}${formatNumber(delta)}${unit} vs. anterior`,
+      tone: Math.abs(adjusted) < .05 ? "neutral" : adjusted > 0 ? "positive" : "negative",
+    };
+  };
+  const changes = [
+    makeChange("Energía", (item) => item.energy, "/10"),
+    makeChange("Estrés", (item) => item.stress, "/10", true),
+    makeChange("Sueño", (item) => item.sleepHours, " h"),
+    makeChange("Productividad", (item) => item.productivity, "/10"),
+  ];
+
+  const correlation = (pairs: Array<[number, number]>) => {
+    if (pairs.length < 7) return null;
+    const meanX = pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length;
+    const meanY = pairs.reduce((sum, pair) => sum + pair[1], 0) / pairs.length;
+    const numerator = pairs.reduce((sum, pair) => sum + (pair[0] - meanX) * (pair[1] - meanY), 0);
+    const denominator = Math.sqrt(
+      pairs.reduce((sum, pair) => sum + (pair[0] - meanX) ** 2, 0)
+      * pairs.reduce((sum, pair) => sum + (pair[1] - meanY) ** 2, 0),
+    );
+    return denominator ? numerator / denominator : null;
+  };
+  const patternDefinitions = [
+    { title: "Sueño y energía", x: (item: DailySignal) => item.sleepHours, y: (item: DailySignal) => item.energy, xLabel: "más horas de sueño", yLabel: "energía", expected: 1, icon: <Moon size={16} /> },
+    { title: "Pantalla y estrés", x: (item: DailySignal) => item.screenTimeHours, y: (item: DailySignal) => item.stress, xLabel: "más tiempo de pantalla", yLabel: "estrés", expected: -1, icon: <Smartphone size={16} /> },
+    { title: "Ejercicio y ánimo", x: (item: DailySignal) => item.exerciseMinutes, y: (item: DailySignal) => item.mood, xLabel: "más ejercicio", yLabel: "ánimo", expected: 1, icon: <Dumbbell size={16} /> },
+    { title: "Foco y productividad", x: (item: DailySignal) => item.focusMinutes, y: (item: DailySignal) => item.productivity, xLabel: "más tiempo de foco", yLabel: "productividad", expected: 1, icon: <Timer size={16} /> },
+    { title: "Hábitos y satisfacción", x: (item: DailySignal) => item.habitsDone, y: (item: DailySignal) => item.daySatisfaction, xLabel: "más hábitos completados", yLabel: "satisfacción con el día", expected: 1, icon: <CheckCircle2 size={16} /> },
+    { title: "Alimentación y energía", x: (item: DailySignal) => item.nutritionQuality, y: (item: DailySignal) => item.energy, xLabel: "mejor alimentación", yLabel: "energía", expected: 1, icon: <Leaf size={16} /> },
+    { title: "Conexión y bienestar", x: (item: DailySignal) => item.socialConnection, y: (item: DailySignal) => item.daySatisfaction, xLabel: "más conexión social", yLabel: "satisfacción", expected: 1, icon: <Users size={16} /> },
+    { title: "Despertar y productividad", x: (item: DailySignal) => item.wakeFeeling, y: (item: DailySignal) => item.productivity, xLabel: "mejor sensación al despertar", yLabel: "productividad", expected: 1, icon: <Sun size={16} /> },
+  ];
+  const patterns = patternDefinitions.flatMap((definition) => {
+    const pairs = current.map((item) => [definition.x(item), definition.y(item)] as const)
+      .filter((pair): pair is readonly [number, number] => pair[0] != null && pair[1] != null)
+      .map((pair) => [pair[0], pair[1]] as [number, number]);
+    const strength = correlation(pairs);
+    if (strength == null || Math.abs(strength) < .3) return [];
+    const sorted = [...pairs].sort((a, b) => a[0] - b[0]);
+    const groupSize = Math.max(2, Math.floor(sorted.length / 3));
+    const low = average(sorted.slice(0, groupSize).map((pair) => pair[1]));
+    const high = average(sorted.slice(-groupSize).map((pair) => pair[1]));
+    const difference = low == null || high == null ? null : high - low;
+    const favorable = strength * definition.expected > 0;
+    return [{
+      title: definition.title,
+      color: favorable ? "mint" : "rose",
+      icon: definition.icon,
+      text: `Los días con ${definition.xLabel}, tu ${definition.yLabel} tiende a ${strength > 0 ? "subir" : "bajar"}${difference == null ? "" : ` (${difference > 0 ? "+" : ""}${formatNumber(difference)} entre tus grupos alto y bajo)`}.`,
+      sample: `${pairs.length} días comparables · relación ${Math.abs(strength) >= .6 ? "fuerte" : "moderada"}`,
+      strength: Math.abs(strength),
+    }];
+  }).sort((a, b) => b.strength - a.strength).slice(0, 4);
+  if (!patterns.length) {
+    patterns.push({
+      title: "Patrones en preparación", color: "lilac", icon: <Sparkles size={16} />,
+      text: current.length < 7 ? "Necesitamos al menos 7 días comparables para empezar a detectar relaciones fiables entre tus comportamientos." : "Todavía no aparece una relación suficientemente consistente. Seguir registrando también evita conclusiones apresuradas.",
+      sample: `${current.length} de 7 días mínimos con check-in`, strength: 0,
+    });
+  }
+
+  const outcomeDays = current.filter((metric) => metric.productivity != null || metric.daySatisfaction != null || metric.mood != null)
+    .sort((a, b) => ((b.productivity ?? b.daySatisfaction ?? (b.mood ?? 0) * 2) - (a.productivity ?? a.daySatisfaction ?? (a.mood ?? 0) * 2)));
+  const topDays = outcomeDays.slice(0, Math.max(2, Math.ceil(outcomeDays.length * .25)));
+  const bestParts = [
+    numericAverage(topDays, (item) => item.sleepHours) == null ? null : `${formatDecimal(numericAverage(topDays, (item) => item.sleepHours))} h de sueño`,
+    numericAverage(topDays, (item) => item.exerciseMinutes) == null ? null : `${formatNumber(numericAverage(topDays, (item) => item.exerciseMinutes))} min de ejercicio`,
+    numericAverage(topDays, (item) => item.focusMinutes) == null ? null : `${formatNumber(numericAverage(topDays, (item) => item.focusMinutes))} min de foco`,
+    numericAverage(topDays, (item) => item.habitsDone) == null ? null : `${formatNumber(numericAverage(topDays, (item) => item.habitsDone))} hábitos completados`,
+  ].filter((part): part is string => Boolean(part));
+  const bestConditions = outcomeDays.length >= 5 && bestParts.length
+    ? `Tus días mejor valorados combinan, en promedio, ${bestParts.join(", ")}. Es una referencia para observar, no una receta rígida.`
+    : "Registra productividad o satisfacción durante 5 días para descubrir qué tienen en común tus mejores jornadas.";
+
+  const recentSleep = numericAverage(current, (item) => item.sleepHours);
+  const recentScreen = numericAverage(current, (item) => item.screenTimeHours);
+  const recentStress = numericAverage(current, (item) => item.stress);
+  const recentExercise = numericAverage(current, (item) => item.exerciseMinutes);
+  const recentProductivity = numericAverage(current, (item) => item.productivity);
+  const opportunity = current.length < 5
+    ? "Completa 5 check-ins para que LifeOS pueda proponerte un cambio pequeño basado en tu propia información."
+    : recentSleep != null && recentSleep < 7 ? "Probá priorizar 7 horas de sueño durante una semana y observaremos el efecto sobre energía y productividad."
+    : recentScreen != null && recentScreen > 4 ? "Probá reducir 30 minutos diarios de pantalla durante una semana y observaremos estrés, sueño y concentración."
+    : recentStress != null && recentStress > 6 ? "Reservá un bloque breve de recuperación diaria y observaremos si baja tu estrés sin perjudicar el foco."
+    : recentExercise != null && recentExercise < 20 ? "Probá añadir 20 minutos de movimiento durante una semana y compararemos ánimo, energía y sueño."
+    : recentProductivity != null && recentProductivity < 6 ? "Planificá un único bloque de foco prioritario al comenzar el día y compararemos tu productividad percibida."
+    : "Tu base es estable. Mantené las condiciones actuales una semana más para confirmar qué comportamientos son realmente sostenibles.";
+
+  return { score, scoreLabel, sampleDays: current.length, changes, patterns, bestConditions, opportunity };
+}
+
+function buildLegacyMetricInsights(data: LifeData) {
   const metrics = [...data.metrics].sort((a, b) => b.date.localeCompare(a.date));
   const completeMetrics = metrics.filter((metric) => metric.sleepHours != null || metric.sleepQuality != null || metric.exerciseMinutes != null || metric.activeCalories != null || metric.screenTimeHours != null);
   const recentWeek = completeMetrics.slice(0, 7);
