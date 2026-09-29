@@ -1,0 +1,220 @@
+/* Calm terracotta refresh — visual layer only.
+   Keeps the existing product structure and functionality intact. */
+
+:root{
+  --ink:#1f1d1b;
+  --ink-soft:#4f4a46;
+  --muted:#756e69;
+  --line:#e9e3de;
+  --paper:#f7f3ef;
+  --card:#fffdfb;
+  --navy:#211f1d;
+  --terracotta:#a65f47;
+  --terracotta-strong:#8f4c39;
+  --terracotta-soft:#f1dfd7;
+  --terracotta-faint:#faf1ed;
+  --sand:#c9aa94;
+  --green:#67766a;
+}
+
+html,body{background:var(--paper)!important;color:var(--ink)!important}
+body{font-family:var(--font-geist-sans),ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+
+/* Product shell */
+.topbar{
+  min-height:78px!important;
+  padding:14px 3vw!important;
+  background:rgba(247,243,239,.92)!important;
+  border-bottom:1px solid rgba(221,212,205,.9)!important;
+  backdrop-filter:blur(18px)!important;
+}
+.topbar-title span{color:#7c746f!important;font-size:11px!important}
+.topbar-title h1{color:#201e1c!important;font-size:clamp(24px,2.1vw,31px)!important;font-weight:720!important;letter-spacing:-.04em!important}
+.page-content{max-width:1260px!important;padding:28px 3vw 52px!important}
+
+/* Primary navigation */
+.lifeos-nav-v2{
+  color:#f8f4f1!important;
+  background:linear-gradient(180deg,#211f1d 0%,#292521 100%)!important;
+  border-right:1px solid rgba(255,255,255,.05)!important;
+  box-shadow:none!important;
+}
+.lifeos-brand-orb{color:#f5ded5!important;background:rgba(166,95,71,.16)!important;border-color:rgba(255,255,255,.08)!important}
+.lifeos-nav-brand small{color:#b2aaa5!important}
+.lifeos-primary-nav>button,.lifeos-area>button,.lifeos-nav-bottom>button{color:#c4bbb5!important}
+.lifeos-primary-nav>button:hover,.lifeos-area>button:hover,.lifeos-nav-bottom>button:hover{background:rgba(255,255,255,.055)!important;color:#fff!important}
+.lifeos-primary-nav button.is-active,.lifeos-area>button.is-active{
+  background:rgba(166,95,71,.18)!important;
+  color:#fff!important;
+  box-shadow:inset 3px 0 var(--terracotta)!important;
+}
+.lifeos-collapse{border-color:#ded5cf!important;color:#645c56!important;background:#fffdfb!important}
+.lifeos-flyout{border-color:#e8e0da!important;background:#fffdfb!important;color:#292522!important;box-shadow:0 20px 55px rgba(49,38,32,.14)!important}
+.lifeos-flyout>button:hover{background:#faf2ee!important}
+.lifeos-flyout>button>span{background:#f4e6df!important;color:#8d503d!important}
+.lifeos-flyout small{color:#817873!important}
+.lifeos-flyout-head{color:#746b66!important}
+
+/* Shared surfaces */
+.card,.goal-card,.project-tile,.project-workspace,.sprint-workspace,.standalone-tasks-card,
+.planning-toolbar,.planning-summary article,.metric-card,.module-card,.note-card,.bucket-card,
+.gratitude-summary article,.gratitude-list article,.focus-stat-grid article,.local-storage-card,
+.cloud-migration-card,.weight-chart-card,.mood-grid-card,.screen-chart-card,.history-card{
+  border:1px solid var(--line)!important;
+  background:var(--card)!important;
+  box-shadow:0 1px 2px rgba(43,34,29,.025)!important;
+}
+.card,.goal-card,.project-workspace,.sprint-workspace{border-radius:20px!important}
+.metric-card,.planning-summary article,.focus-stat-grid article,.module-card,.project-tile,.note-card,.bucket-card{border-radius:16px!important}
+.card:hover,.module-card:hover,.project-tile:hover{box-shadow:0 10px 28px rgba(50,38,31,.055)!important}
+
+/* Typography and contrast */
+.card-heading h3,.section-intro h2,.journal-date h2,.reflection-card h3,.bullet-card h3,.program-card h3,
+.module-card strong,.planning-summary strong,.quarter-map h3,.quarter-month-grid strong,.focus-preview-main strong,
+.period-switcher strong,.focus-stat-grid strong,.goal-card h3,.project-tile-main strong,.project-percentage,
+.workspace-subheader h3,.workspace-heading h3,.project-notes-strip h3,.note-card h3,.sprint-toolbar h3,
+.sprint-summary strong,.sprint-direction h3,.bucket-hero h2,.bucket-ring strong,.bucket-progress>div:last-child strong,
+.bucket-card h3,.local-storage-card h3,.cloud-migration-card h3,.gratitude-hero h2,.gratitude-quote strong,
+.gratitude-summary strong,.gratitude-list h4,.mind-node strong,.mindmap-detail h3,.timer-ring strong,.chart-summary strong,
+.mood-average strong,.screen-summary strong,.streak-stat-grid strong,.calendar-day-label strong,.loading-card strong,
+.welcome-copy h2,.more-hero h2,.welcome-stats strong,.agenda-summary h3,.date-switcher strong,.metric-card strong,
+.program-card h3,.quick-modal h3,.modal-heading h3{font-family:var(--font-geist-sans)!important}
+
+.card-heading h3{font-size:18px!important;font-weight:700!important;color:#282421!important}
+.section-intro h2{font-size:clamp(28px,2.8vw,37px)!important;font-weight:720!important;letter-spacing:-.045em!important;color:#201d1b!important}
+.section-intro p,.card p,.card small,.module-card small,.metric-card small,.program-card>p,.goal-card>p,
+.project-tile-footer,.workspace-heading p,.sprint-toolbar p,.bucket-card p,.note-card p,.gratitude-list p,
+.focus-history-list small,.insight-list p{color:#716963!important}
+.section-label{color:#9a5944!important;font-size:10px!important;letter-spacing:.11em!important}
+small{line-height:1.45}
+
+/* Buttons */
+.primary-button{
+  min-height:42px!important;
+  padding:0 16px!important;
+  border:1px solid var(--terracotta)!important;
+  border-radius:12px!important;
+  background:var(--terracotta)!important;
+  color:#fff!important;
+  font-size:11px!important;
+  font-weight:720!important;
+  box-shadow:none!important;
+}
+.primary-button:hover{background:var(--terracotta-strong)!important;border-color:var(--terracotta-strong)!important;transform:translateY(-1px)}
+.primary-button:focus-visible,.outline-button:focus-visible,.outline-compact:focus-visible,.icon-button:focus-visible,
+.lifeos-primary-nav button:focus-visible,.lifeos-area>button:focus-visible{
+  outline:3px solid rgba(166,95,71,.22)!important;
+  outline-offset:2px!important;
+}
+.icon-button,.outline-compact,.outline-button,.date-switcher>button,.period-switcher>button,.today-period{
+  border:1px solid #dfd6d0!important;
+  background:#fffdfb!important;
+  color:#4f4843!important;
+  border-radius:11px!important;
+  box-shadow:none!important;
+}
+.icon-button:hover,.outline-compact:hover,.outline-button:hover,.date-switcher>button:hover,.period-switcher>button:hover{
+  border-color:#c9b3a7!important;background:#fbf0eb!important;color:#7c4535!important;
+}
+.segmented,.planning-tabs,.focus-mode-tabs{border-color:#e4ddd7!important;background:#efe8e3!important;border-radius:12px!important}
+.segmented button,.planning-tabs button,.focus-mode-tabs button{color:#6c635e!important}
+.segmented button.active,.planning-tabs button.active,.focus-mode-tabs button.active{
+  background:#fffdfb!important;color:#7e4938!important;box-shadow:0 1px 2px rgba(55,40,33,.06)!important
+}
+
+/* Home */
+.welcome-card{
+  min-height:210px!important;
+  padding:34px 38px!important;
+  border:1px solid #3a312d!important;
+  border-radius:24px!important;
+  background:
+    radial-gradient(circle at 84% 26%,rgba(191,120,93,.22),transparent 27%),
+    radial-gradient(circle at 93% 95%,rgba(229,199,182,.08),transparent 30%),
+    linear-gradient(130deg,#221f1d 0%,#2a2522 64%,#312821 100%)!important;
+  box-shadow:none!important;
+}
+.welcome-copy h2{font-size:clamp(34px,3vw,44px)!important;font-weight:720!important;color:#fff!important}
+.welcome-copy>p{color:#d2c7c0!important;font-size:12px!important;line-height:1.6!important}
+.welcome-stats strong{color:#fff!important}
+.weekly-life-grid>div{border-color:#eadfd8!important;background:#fbf5f1!important;color:#8d503d!important}
+.weekly-life-grid strong{color:#3b332f!important}
+.progress-track{background:#eee4de!important}
+.progress-track span{background:var(--terracotta)!important}
+.task-number{background:#f2e2da!important;color:#854b39!important}
+.moods button{border-color:#e5ddd7!important;background:#fdfaf8!important}
+
+/* Focus and forms */
+.focus-timer-card{border-color:#e8dfd9!important;background:radial-gradient(circle at 50% 31%,rgba(166,95,71,.075),transparent 34%),#fffdfb!important}
+.focus-timer-card.break{background:radial-gradient(circle at 50% 31%,rgba(119,133,118,.07),transparent 34%),#fffdfb!important}
+.record-form input,.record-form select,.record-form textarea,.date-input,.journal-title,
+.focus-session-form input,.focus-session-form select,.manual-time-form input,.manual-time-form select{
+  border:1px solid #ddd3cc!important;
+  background:#fffdfb!important;
+  color:#2d2825!important;
+  border-radius:12px!important;
+}
+.record-form input:focus,.record-form select:focus,.record-form textarea:focus,.journal-title:focus,.date-input:focus,
+.focus-session-form input:focus,.focus-session-form select:focus,.manual-time-form input:focus,.manual-time-form select:focus{
+  border-color:var(--terracotta)!important;
+  box-shadow:0 0 0 3px rgba(166,95,71,.12)!important;
+  outline:none!important;
+}
+
+/* Planning */
+.planning-toolbar,.workspace-subheader{border-color:var(--line)!important;background:#fffdfb!important}
+.quarter-map{border-color:var(--line)!important;background:#fffdfb!important}
+.quarter-month-grid button{border-color:#e8ded8!important;background:#fbf6f3!important}
+.kanban-column{border-color:#e9e0da!important;background:#f8f4f1!important}
+.kanban-column.doing{background:#faf0eb!important}
+.kanban-column.done{background:#f2f5f1!important}
+.task-card,.sprint-task-card{border-color:#e5dbd5!important;background:#fffdfb!important}
+.sprint-day{border-color:#e8dfd9!important;background:#f9f5f2!important}
+.sprint-day.today{border-color:#c88a73!important;background:#fbefea!important}
+
+/* Feature heroes */
+.gratitude-hero,.bucket-hero,.more-hero{
+  border-radius:24px!important;
+  box-shadow:none!important;
+}
+.gratitude-hero,.bucket-hero{
+  background:
+    radial-gradient(circle at 82% 28%,rgba(201,143,117,.2),transparent 26%),
+    linear-gradient(130deg,#25211f,#352a26 58%,#493329)!important;
+}
+.bucket-card.inProgress{background:#fffaf6!important}
+.bucket-card.completed{background:#f4f7f3!important}
+
+/* Mind map */
+.mindmap-canvas-card{
+  border-color:#e6ddd7!important;
+  background:radial-gradient(circle at center,rgba(166,95,71,.055),transparent 18%),radial-gradient(#e9e1dc 1px,transparent 1px),#fcf9f7!important;
+  background-size:auto,22px 22px!important;
+}
+.mind-node{box-shadow:none!important;border-color:#dfd5cf!important}
+.mind-node.center{background:#29231f!important;border-color:#29231f!important}
+.mind-node.rose,.mind-node.sand,.mind-node.mint,.mind-node.blue{background:#f6ebe5!important;border-color:#e7cec2!important}
+
+/* Mobile */
+@media(max-width:760px){
+  .topbar{min-height:68px!important;padding:10px 14px!important}
+  .topbar-title h1{font-size:21px!important}
+  .page-content{padding:16px 14px 30px!important}
+  .card{padding:17px!important;border-radius:18px!important}
+  .welcome-card{padding:28px 22px!important;border-radius:20px!important}
+  .welcome-copy h2{font-size:33px!important}
+  .lifeos-mobile-nav-v2{border-top-color:#ddd3cd!important;background:rgba(255,253,251,.97)!important}
+  .lifeos-mobile-nav-v2 button{color:#817873!important;font-size:9px!important}
+  .lifeos-mobile-nav-v2 button.is-active{color:#8d503d!important}
+  .lifeos-mobile-sheet{background:#f7f2ee!important}
+  .lifeos-sheet-home,.lifeos-sheet-settings,.lifeos-sheet-area>button{background:#fffdfb!important;color:#3b3531!important}
+  .lifeos-sheet-area>div button{color:#665e59!important}
+  .lifeos-sheet-area>div button:hover{background:#f2e5df!important}
+}
+
+/* Readability: the legacy UI used many 7–9px labels. These floors preserve hierarchy while
+   making the interface comfortable for longer planning sessions. */
+.card small,.module-card small,.metric-card small,.goal-card small,.project-tile small,.note-card small,
+.bucket-card small,.gratitude-list small,.focus-history-list small,.lifeos-flyout small{font-size:10px!important}
+.card p,.module-card p,.goal-card p,.project-tile p,.note-card p,.bucket-card p,.gratitude-list p,.insight-list p{font-size:11px!important}
+button{font-family:inherit}
