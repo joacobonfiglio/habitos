@@ -283,3 +283,89 @@ html[data-lifeos-nav="top"] .page-content{max-width:1380px!important;margin:0 au
   .today-v3-focus{grid-template-columns:1fr;padding:22px;border-radius:19px}.today-v3-focus-number{align-items:flex-start;border-left:0;border-top:1px solid rgba(255,255,255,.12);padding:16px 0 0}
   .today-v3-week{padding:15px}.today-v3-week-grid{overflow-x:auto;grid-template-columns:repeat(7,84px);padding-bottom:4px}.today-v3-day{min-height:88px}
 }
+
+
+/* ===== Contrast pass ===== */
+body{background:#f2ece7!important}
+html[data-lifeos-nav="top"] .main{background:linear-gradient(180deg,#f5f0ec 0%,#eee7e2 100%)!important}
+.today-v3-agenda,.today-v3-week,.today-v3-panel,.planner-v4-week-focus,.planner-v4-quadrant,.planner-v4-roadmap-main,.planner-v4-project-list,.planner-v4-inbox-list{
+  box-shadow:0 1px 0 rgba(47,35,28,.03),0 10px 28px rgba(56,42,34,.04)!important
+}
+.today-v3-agenda{background:#fffdfb!important}
+.today-v3-week{background:#f8efe9!important;border-color:#ddcfc5!important}
+.today-v3-panel{background:#fbf7f4!important;border-color:#ddd1c9!important}
+.today-v3-habits{background:#f5e8e1!important;border-color:#dcc1b5!important}
+.today-v3-checkin{background:#f8f3ec!important}
+.today-v3-projects{background:#f1ebe7!important}
+.today-v3-weekly-note{border-color:#cfc0b6!important;background:#cfc0b6!important}
+.today-v3-weekly-note>div{background:#f9f4f0!important}
+.today-v3-pulse{background:rgba(255,253,251,.5)}
+.today-v3-pulse>div:nth-child(odd){background:rgba(255,255,255,.22)}
+
+/* ===== Planner V4 ===== */
+.planner-v4{padding-top:34px!important}
+.planner-v4-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;margin-bottom:20px;padding:28px 30px;border:1px solid #d7c8bd;border-radius:24px;background:linear-gradient(135deg,#f9f2ed,#efe2da)}
+.planner-v4-hero h2{margin:9px 0 8px;color:#221e1b;font-size:clamp(34px,4vw,52px);font-weight:680;letter-spacing:-.06em;line-height:1}
+.planner-v4-hero p{max-width:720px;margin:0;color:#6e645e;font-size:12px;line-height:1.65}
+.planner-v4-create{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.planner-v4-tabs{display:flex;gap:4px;margin-bottom:18px;padding:5px;border:1px solid #d9cdc5;border-radius:14px;background:#e9e0da}
+.planner-v4-tabs button{min-height:40px;display:flex;align-items:center;gap:7px;padding:0 13px;border:0;border-radius:10px;background:transparent;color:#6e645e;font-size:10px;font-weight:720;cursor:pointer}
+.planner-v4-tabs button.active{background:#2b2521;color:#fff}
+.planner-v4-tabs button b{min-width:18px;height:18px;display:grid;place-items:center;border-radius:999px;background:#a45f48;color:#fff;font-size:8px}
+
+.planner-v4-priorities{display:grid;gap:16px}
+.planner-v4-week-focus{padding:22px;border:1px solid #d3c3b8;border-radius:22px;background:#fffdfb}
+.planner-v4-week-focus>header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:14px}
+.planner-v4-week-focus>header span,.planner-v4-quadrant>header span{color:#985540;font-size:9px;font-weight:800;letter-spacing:.11em}
+.planner-v4-week-focus h3,.planner-v4-section-heading h3{margin:5px 0 3px;font-size:22px;letter-spacing:-.04em}
+.planner-v4-week-focus p,.planner-v4-section-heading p{margin:0;color:#81766f;font-size:10px}
+.planner-v4-week-focus>header>strong{font-size:34px;color:#9b5741}
+.planner-v4-top-list{display:grid;border-top:1px solid #eee4de}
+
+.planner-v4-matrix{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.planner-v4-quadrant{min-height:250px;padding:20px;border:1px solid #ddd1c9;border-radius:20px}
+.planner-v4-quadrant.critical{background:#f5dfd7;border-color:#d9b4a5}
+.planner-v4-quadrant.strategic{background:#f4eee6;border-color:#ddcfbd}
+.planner-v4-quadrant.urgent{background:#f2e9e1;border-color:#d8c4b7}
+.planner-v4-quadrant.low{background:#ece9e5;border-color:#d5d0cb}
+.planner-v4-quadrant>header{display:flex;justify-content:space-between;align-items:center}.planner-v4-quadrant>header span{display:flex;align-items:center;gap:6px}.planner-v4-quadrant>header strong{font-size:18px}
+.planner-v4-quadrant h3{margin:12px 0 5px;font-size:18px;letter-spacing:-.035em}.planner-v4-quadrant>p{margin:0 0 13px;color:#776d66;font-size:10px;line-height:1.5}
+.planner-v4-quadrant>div{display:grid;gap:7px}
+
+.planner-v4-task{min-height:60px;display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(110,92,81,.12)}
+.planner-v4-task:last-child{border-bottom:0}.planner-v4-task.milestone{background:rgba(255,255,255,.24)}
+.planner-v4-check{width:28px;height:28px;display:grid;place-items:center;border:1px solid #d5c8c0;border-radius:9px;background:#fffdfb;color:#8e5140;cursor:pointer}
+.planner-v4-task-main{border:0;background:transparent;color:#302a26;text-align:left;cursor:pointer}.planner-v4-task-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.planner-v4-task-title strong{font-size:11px}.planner-v4-task-main small{display:block;margin-top:4px;color:#897d75;font-size:8px}
+.milestone-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border-radius:999px;background:#2f2824;color:#fff;font-size:7px;font-weight:800;letter-spacing:.06em}
+.planner-v4-levels{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.planner-v4-levels span{padding:4px 6px;border-radius:999px;font-size:7px;font-weight:800}
+.planner-v4-levels .importance.high{background:#8f4937;color:#fff}.planner-v4-levels .importance.medium{background:#e8cbbd;color:#744130}.planner-v4-levels .importance.low{background:#e7e2de;color:#6f6660}
+.planner-v4-levels .urgency.high{background:#2e2926;color:#fff}.planner-v4-levels .urgency.medium{background:#d9cec6;color:#574f49}.planner-v4-levels .urgency.low{background:#efebe8;color:#7c736c}
+
+.planner-v4-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:16px}
+.planner-v4-week,.planner-v4-roadmap,.planner-v4-inbox{padding-top:4px}
+.planner-v4-week-days{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:9px;overflow-x:auto;padding-bottom:6px}
+.planner-v4-day{min-height:310px;padding:12px;border:1px solid #dcd0c8;border-radius:17px;background:#f8f2ee}.planner-v4-day.today{background:#f0ddd4;border-color:#c99682}
+.planner-v4-day>header{display:grid;gap:3px;margin-bottom:10px}.planner-v4-day>header span{color:#9b5741;font-size:8px;font-weight:800;letter-spacing:.08em}.planner-v4-day>header strong{font-size:22px}.planner-v4-day>header small{color:#877c75;font-size:8px}.planner-v4-day .planner-v4-task{grid-template-columns:26px minmax(0,1fr);padding:8px 0}.planner-v4-day .planner-v4-levels{grid-column:2;justify-content:flex-start}
+
+.planner-v4-roadmap-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}
+.planner-v4-project-list{align-self:start;padding:10px;border:1px solid #d8ccc4;border-radius:20px;background:#ebe2dc}
+.planner-v4-project-list>button{width:100%;min-height:72px;display:grid;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;gap:9px;padding:10px;border:0;border-radius:13px;background:transparent;color:#413a35;text-align:left;cursor:pointer}.planner-v4-project-list>button:hover{background:#f5ede8}.planner-v4-project-list>button.active{background:#fffdfb;box-shadow:0 2px 8px rgba(54,40,32,.06)}
+.planner-v4-project-dot{width:7px;height:7px;border-radius:50%;background:#a45f48}.planner-v4-project-list small,.planner-v4-project-list strong{display:block}.planner-v4-project-list small{color:#8c8078;font-size:8px}.planner-v4-project-list strong{margin-top:4px;font-size:11px}.planner-v4-project-list i{display:block;height:4px;margin-top:8px;border-radius:999px;background:#ddd2ca;overflow:hidden}.planner-v4-project-list i b{display:block;height:100%;background:#9e5942}.planner-v4-project-list em{font-style:normal;font-size:10px;font-weight:800}.planner-v4-project-list .planner-v4-new-project{min-height:44px;display:flex;justify-content:center;gap:7px;margin-top:6px;border:1px dashed #c8b9af;background:#f3ebe6}
+.planner-v4-roadmap-main{padding:22px;border:1px solid #d9ccc4;border-radius:22px;background:#fffdfb}
+.planner-v4-project-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:18px;border-bottom:1px solid #eee5df}.planner-v4-project-header>div:first-child>span{color:#9b5741;font-size:8px;font-weight:800;letter-spacing:.1em}.planner-v4-project-header h3{margin:5px 0 6px;font-size:27px;letter-spacing:-.05em}.planner-v4-project-header p{max-width:700px;margin:0;color:#7b7069;font-size:10px;line-height:1.5}.planner-v4-project-header>div:last-child{display:flex;gap:7px}
+.planner-v4-project-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:16px 0;border:1px solid #e3d9d2;border-radius:15px;overflow:hidden}.planner-v4-project-stats>div{padding:15px;border-right:1px solid #e3d9d2;background:#f7f0ec}.planner-v4-project-stats>div:last-child{border-right:0}.planner-v4-project-stats span,.planner-v4-project-stats small{display:block}.planner-v4-project-stats span{color:#8f8178;font-size:8px;font-weight:800;letter-spacing:.08em}.planner-v4-project-stats strong{display:block;margin:5px 0 2px;font-size:22px}.planner-v4-project-stats small{color:#8a7e77;font-size:8px}
+.planner-v4-timeline{position:relative;padding:4px 0 4px 20px}.planner-v4-timeline-line{position:absolute;top:8px;bottom:8px;left:29px;width:1px;background:#d9ccc4}.planner-v4-roadmap-item{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;padding:9px 0}.planner-v4-roadmap-node{width:20px;height:20px;display:grid;place-items:center;z-index:1;border:2px solid #ba7b65;border-radius:50%;background:#fffdfb;color:#9a5741}.planner-v4-roadmap-item.done .planner-v4-roadmap-node{border-color:#5f6f62;background:#5f6f62;color:#fff}.planner-v4-roadmap-item.milestone .planner-v4-roadmap-node{border-radius:6px;background:#2e2926;color:#fff;border-color:#2e2926}
+.planner-v4-roadmap-content{padding:13px 14px;border:1px solid #e6dcd5;border-radius:15px;background:#faf6f3}.planner-v4-roadmap-item.done .planner-v4-roadmap-content{background:#f0f1ee;opacity:.8}.planner-v4-roadmap-content header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.planner-v4-roadmap-content header small,.planner-v4-roadmap-content header strong{display:block}.planner-v4-roadmap-content header small{color:#9b5741;font-size:7px;font-weight:800;letter-spacing:.08em}.planner-v4-roadmap-content header strong{margin-top:4px;font-size:12px}.planner-v4-roadmap-content p{margin:8px 0;color:#7b7069;font-size:9px;line-height:1.5}.planner-v4-roadmap-content footer{display:flex;align-items:center;gap:12px;color:#877a72;font-size:8px}.planner-v4-roadmap-content footer span{display:flex;align-items:center;gap:4px}.planner-v4-roadmap-content footer button{margin-left:auto;border:0;background:transparent;color:#8f503d;font-size:8px;font-weight:750;cursor:pointer}
+.planner-v4-inbox-list{padding:12px 18px;border:1px solid #d9ccc4;border-radius:20px;background:#fffdfb}
+
+@media(max-width:1050px){
+  .planner-v4-roadmap-layout{grid-template-columns:1fr}.planner-v4-project-list{display:grid;grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+  .planner-v4{padding-top:22px!important}.planner-v4-hero{align-items:flex-start;flex-direction:column;padding:22px}.planner-v4-hero h2{font-size:39px}.planner-v4-create{width:100%;justify-content:flex-start}.planner-v4-tabs{overflow-x:auto}.planner-v4-tabs button{min-width:max-content}
+  .planner-v4-matrix{grid-template-columns:1fr}.planner-v4-week-focus{padding:17px}.planner-v4-week-focus>header{align-items:flex-start}
+  .planner-v4-task{grid-template-columns:28px minmax(0,1fr)}.planner-v4-levels{grid-column:2;justify-content:flex-start}
+  .planner-v4-week-days{grid-template-columns:repeat(7,82vw)}.planner-v4-roadmap-main{padding:16px}.planner-v4-project-list{grid-template-columns:1fr}
+  .planner-v4-project-header{flex-direction:column}.planner-v4-project-header>div:last-child{width:100%}.planner-v4-project-stats{grid-template-columns:1fr}.planner-v4-project-stats>div{border-right:0;border-bottom:1px solid #e3d9d2}.planner-v4-project-stats>div:last-child{border-bottom:0}
+  .planner-v4-roadmap-content header{flex-direction:column}.planner-v4-levels{justify-content:flex-start}
+}
