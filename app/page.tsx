@@ -531,82 +531,134 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
   const weekEnd = addDays(today, 6);
   const weekTimelineDays = Array.from({ length: 7 }, (_, index) => addDays(today, index));
   const upcomingProjectTasks = data.projectTasks.filter((task) => task.status !== "done" && task.scheduledDate && task.scheduledDate >= today && task.scheduledDate <= weekEnd);
-  const upcomingGoals = data.planGoals.filter((goal) => !goalCompletion(goal, data.planTasks, data.projectTasks).complete && goal.targetDate && goal.targetDate >= today && goal.targetDate <= weekEnd);
-  const upcomingPlan = [
-    ...upcomingProjectTasks.map((task) => ({ id: task.id, title: task.title, date: task.scheduledDate as string, type: "Sprint", projectId: task.projectId })),
-    ...upcomingGoals.map((goal) => ({ id: goal.id, title: goal.title, date: goal.targetDate as string, type: "Objetivo", projectId: goal.projectId })),
-  ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 7);
   const percent = activeHabits.length ? Math.round(todayLogs.filter((log) => activeHabits.some((habit) => habit.id === log.habitId)).length / activeHabits.length * 100) : 0;
   const weekDays = lastDays(today, 7);
   const weekMetrics = data.metrics.filter((metric) => weekDays.includes(metric.date));
-  const weekWeight = weekMetrics.find((metric) => metric.weight != null)?.weight;
   const weekMood = average(weekMetrics.map((metric) => metric.mood));
   const weekHabitLogs = data.habitLogs.filter((log) => log.done && weekDays.includes(log.date) && activeHabits.some((habit) => habit.id === log.habitId));
   const weekFocus = data.focusSessions.filter((session) => weekDays.includes(session.date)).reduce((sum, session) => sum + session.minutes, 0);
   const journalStreak = streakStats(data.journals.map((item) => item.date), today);
-  const checkinStreak = streakStats(data.metrics.map((item) => item.date), today);
-  const habitStreaks = activeHabits.map((habit) => ({ habit, ...streakStats(data.habitLogs.filter((log) => log.habitId === habit.id && log.done).map((log) => log.date), today) })).sort((a, b) => b.current - a.current || b.best - a.best);
+  const openToday = todayBullets.filter((item) => !item.done);
+  const nextScheduled = upcomingProjectTasks
+    .filter((task) => task.scheduledDate === today)
+    .sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99"));
+
   return (
-    <div className="page-content today-page">
-      <section className="welcome-card">
-        <div className="welcome-copy">
-          <span className="section-label"><Sun size={15} /> REGISTRO DE HOY</span>
-          <h2>Haz que hoy cuente.</h2>
-          <p>Registra lo que haces, cómo te sientes y qué estás aprendiendo. Tus datos se guardan al momento.</p>
-          <div className="welcome-stats"><div><strong>{activeProjects.length}</strong><span>proyectos</span></div><div><strong>{todayBullets.filter((item) => !item.done).length}</strong><span>pendientes</span></div><div><strong>{percent}%</strong><span>hábitos</span></div></div>
+    <div className="page-content today-v3">
+      <section className="today-v3-header">
+        <div>
+          <span className="today-v3-kicker"><Sun size={14} /> {formatLongDate(today)}</span>
+          <h2>Tu día, en un solo lugar.</h2>
+          <p>Decidí qué importa, reservá tiempo para hacerlo y dejá el resto fuera del ruido.</p>
         </div>
-        <div className="orbit-wrap" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="planet"><Moon size={30} /></div><span className="tiny-star star-one">✦</span><span className="tiny-star star-two">·</span><span className="tiny-star star-three">✧</span></div>
+        <div className="today-v3-header-actions">
+          <button className="today-v3-action primary" onClick={() => onOpen({ kind: "bullet" })}><Plus size={16} /> Añadir al día</button>
+          <button className="today-v3-action" onClick={() => onNavigate("focus")}><Timer size={16} /> Empezar foco</button>
+        </div>
       </section>
-      <section className="card weekly-life-card">
-        <div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> TU SEMANA EN LIFEOS</span><h3>Una mirada a los últimos 7 días</h3></div><small>{formatTinyDate(weekDays[0])} — {formatTinyDate(today)}</small></div>
-        <div className="weekly-life-grid"><div><Scale size={16} /><span>Peso</span><strong>{metricValue(weekWeight, "kg")}</strong></div><div><Heart size={16} /><span>Ánimo medio</span><strong>{weekMood == null ? missingValue : `${formatDecimal(weekMood)}/5`}</strong></div><div><CheckCircle2 size={16} /><span>Hábitos hechos</span><strong>{weekHabitLogs.length}</strong></div><div><Timer size={16} /><span>Tiempo de foco</span><strong>{formatMinutes(weekFocus)}</strong></div><div><PenLine size={16} /><span>Racha journal</span><strong>{journalStreak.current} días</strong></div></div>
-        <div className="dashboard-streaks"><span><Flame size={14} /> Mejor hábito actual: <strong>{habitStreaks[0]?.current ? `${habitStreaks[0].habit.name} · ${habitStreaks[0].current} días` : missingValue}</strong></span><span><BookOpen size={14} /> Journal: <strong>{journalStreak.current} actual · {journalStreak.best} mejor</strong></span><span><BarChart3 size={14} /> Check-in: <strong>{checkinStreak.current} actual · {checkinStreak.best} mejor</strong></span></div>
+
+      <section className="today-v3-pulse" aria-label="Resumen del día">
+        <div><span>Pendientes</span><strong>{openToday.length}</strong><small>para hoy</small></div>
+        <div><span>Hábitos</span><strong>{percent}%</strong><small>{todayLogs.length}/{activeHabits.length} completos</small></div>
+        <div><span>Enfoque</span><strong>{formatMinutes(focusToday)}</strong><small>trabajado hoy</small></div>
+        <div><span>Ánimo</span><strong>{todayMetric?.mood == null ? missingValue : `${todayMetric.mood}/5`}</strong><small>{todayMetric ? "check-in hecho" : "sin registrar"}</small></div>
       </section>
-      <div className="dashboard-grid">
-        <div className="left-column">
-          <section className="card">
-            <div className="card-heading"><div><span className="section-label dark"><Flame size={14} /> RITUALES</span><h3>Hábitos de hoy</h3></div><button className="text-button" onClick={() => onNavigate("habits")}>Gestionar <ArrowRight size={15} /></button></div>
-            <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
-            {activeHabits.length ? <div className="habit-grid">{activeHabits.slice(0, 6).map((habit) => {
-              const done = todayLogs.some((log) => log.habitId === habit.id);
-              return <button key={habit.id} className={`habit ${habit.color} ${done ? "completed" : ""}`} onClick={() => onToggleHabit(habit)}><span className="habit-icon">{habitCategoryIcon(habit.category, 18)}</span><span><strong>{habit.name}</strong><small>{habit.detail || habit.category}</small></span><span className="habit-check">{done && <Check size={14} />}</span></button>;
-            })}</div> : <EmptyState text="Aún no tienes hábitos. Crea el primero para empezar." action="Crear hábito" onClick={() => onOpen({ kind: "habit" })} />}
+
+      <div className="today-v3-layout">
+        <main className="today-v3-main">
+          <section className="today-v3-agenda">
+            <header className="today-v3-section-head">
+              <div><span>PLAN DEL DÍA</span><h3>Qué vas a hacer hoy</h3></div>
+              <button onClick={() => onOpen({ kind: "bullet" })}><Plus size={15}/> Añadir</button>
+            </header>
+
+            <div className="today-v3-agenda-list">
+              {nextScheduled.map((task) => <button className="today-v3-agenda-row scheduled" key={task.id} onClick={() => onNavigate("projects")}>
+                <span className="today-v3-time">{task.scheduledTime || "Plan"}</span>
+                <span className="today-v3-row-copy"><strong>{task.title}</strong><small>{task.itemType === "event" ? "Evento" : task.itemType === "reminder" ? "Recordatorio" : "Tarea planificada"}</small></span>
+                <ArrowRight size={16}/>
+              </button>)}
+              {todayBullets.slice(0, 7).map((item) => <button className={`today-v3-agenda-row ${item.done ? "done" : ""}`} key={item.id} onClick={() => onToggleBullet(item)}>
+                <span className="today-v3-check">{item.done ? <Check size={14}/> : <Circle size={15}/>}</span>
+                <span className="today-v3-row-copy"><strong>{item.text}</strong><small>{item.type || "Tarea personal"}</small></span>
+                <span className="today-v3-row-status">{item.done ? "Hecho" : "Pendiente"}</span>
+              </button>)}
+              {!nextScheduled.length && !todayBullets.length && <div className="today-v3-empty"><span>Tu día está despejado.</span><p>Añadí solo lo que realmente querés completar hoy.</p><button onClick={() => onOpen({ kind: "bullet" })}><Plus size={15}/> Crear primera tarea</button></div>}
+            </div>
           </section>
-          <section className="card">
-            <div className="card-heading"><div><span className="section-label dark"><ListTodo size={14} /> BULLET LIST</span><h3>Lo importante de hoy</h3></div><button className="add-inline top" onClick={() => onOpen({ kind: "bullet" })}><Plus size={15} /> Añadir</button></div>
-            <div className="task-list">{todayBullets.slice(0, 6).map((item, index) => <button className={`task ${item.done ? "task-done" : ""}`} key={item.id} onClick={() => onToggleBullet(item)}><span className="task-number">{item.done ? <Check size={15} /> : `0${index + 1}`}</span><span>{item.text}</span>{item.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button>)}</div>
-            {!todayBullets.length && <EmptyState text="Tu lista está vacía. Añade una tarea, nota o evento." />}
+
+          <section className="today-v3-focus">
+            <div className="today-v3-focus-copy">
+              <span>ESPACIO DE ENFOQUE</span>
+              <h3>Una cosa a la vez.</h3>
+              <p>Entrá en modo foco cuando tengas claro qué querés mover hoy.</p>
+              <button onClick={() => onNavigate("focus")}><Play size={16}/> Abrir temporizador</button>
+            </div>
+            <div className="today-v3-focus-number"><strong>{formatMinutes(focusToday)}</strong><span>hoy</span><small>{data.focusSessions.filter((session) => session.date === today).length} sesiones</small></div>
           </section>
-          <section className="card upcoming-plan-card">
-            <div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14} /> ESTA SEMANA</span><h3>Lo que tienes por delante</h3></div><button className="text-button" onClick={() => onNavigate("projects")}>Abrir planner <ArrowRight size={15} /></button></div>
-            <div className="dashboard-week-agenda">{weekTimelineDays.map((date) => { const items = upcomingProjectTasks.filter((task) => taskOccursOnDate(task, date)).sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || a.title.localeCompare(b.title, "es")); return <section className={`dashboard-week-day ${date === today ? "today" : ""}`} key={date}><header><strong>{date === today ? "HOY" : shortDay(date)}</strong><small>{new Date(`${date}T12:00:00Z`).getUTCDate()}</small></header><div>{items.slice(0, 4).map((task) => <button className={`dashboard-week-item ${task.itemType || "task"}`} key={task.id} onClick={() => onNavigate("projects")}><b>{task.scheduledTime || (task.itemType === "event" ? "Evento" : task.itemType === "reminder" ? "Recordatorio" : "Tarea")}</b><span>{task.title}</span></button>)}{items.length > 4 && <small className="dashboard-week-more">+{items.length - 4} más</small>}{!items.length && <small className="dashboard-week-empty">—</small>}</div></section>; })}</div>
-            {!upcomingProjectTasks.length && <EmptyState text="No tienes tareas, eventos ni recordatorios programados para los próximos 7 días." action="Abrir planner" onClick={() => onNavigate("projects")} />}
+
+          <section className="today-v3-week">
+            <header className="today-v3-section-head">
+              <div><span>PRÓXIMOS 7 DÍAS</span><h3>Tu semana sin sobrecarga</h3></div>
+              <button onClick={() => onNavigate("projects")}>Abrir planificación <ArrowRight size={14}/></button>
+            </header>
+            <div className="today-v3-week-grid">
+              {weekTimelineDays.map((date) => {
+                const items = upcomingProjectTasks.filter((task) => taskOccursOnDate(task, date));
+                return <button className={`today-v3-day ${date === today ? "is-today" : ""}`} key={date} onClick={() => onNavigate("projects")}>
+                  <span>{date === today ? "HOY" : shortDay(date)}</span>
+                  <strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong>
+                  <small>{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "Libre"}</small>
+                </button>;
+              })}
+            </div>
           </section>
-        </div>
-        <div className="right-column">
-          <section className="card focus-preview-card">
-            <div className="card-heading"><div><span className="section-label dark"><Timer size={14} /> ENFOQUE</span><h3>Trabajo de hoy</h3></div><button className="icon-button small" onClick={() => onNavigate("focus")}><ArrowRight size={17} /></button></div>
-            <button className="focus-preview-main" onClick={() => onNavigate("focus")}><span><Timer size={22} /></span><div><strong>{formatMinutes(focusToday)}</strong><small>{data.focusSessions.filter((session) => session.date === today).length} sesiones registradas</small></div><Play size={18} /></button>
+        </main>
+
+        <aside className="today-v3-side">
+          <section className="today-v3-panel today-v3-habits">
+            <header><div><span>RITUALES</span><h3>Hábitos de hoy</h3></div><strong>{percent}%</strong></header>
+            <div className="today-v3-habit-progress"><i style={{ width: `${percent}%` }}/></div>
+            <div className="today-v3-habit-list">
+              {activeHabits.slice(0, 6).map((habit) => {
+                const done = todayLogs.some((log) => log.habitId === habit.id);
+                return <button key={habit.id} className={done ? "done" : ""} onClick={() => onToggleHabit(habit)}>
+                  <span>{habitCategoryIcon(habit.category, 17)}</span><div><strong>{habit.name}</strong><small>{habit.detail || habit.category}</small></div><i>{done ? <Check size={13}/> : null}</i>
+                </button>;
+              })}
+            </div>
+            <button className="today-v3-link" onClick={() => onNavigate("habits")}>Gestionar hábitos <ArrowRight size={14}/></button>
           </section>
-          <section className="card checkin-card">
-            <div className="card-heading compact"><div><span className="section-label dark"><Heart size={14} /> CHECK-IN</span><h3>¿Cómo estás?</h3></div><button className="icon-button small" onClick={() => onOpen({ kind: "metric", record: todayMetric })}><Edit3 size={15} /></button></div>
-            {todayMetric ? <>
-              <div className="mood-display"><span>{moodEmoji(todayMetric.mood) || missingValue}</span><div><strong>{todayMetric.mood == null ? `Ánimo ${missingValue}` : `Ánimo ${todayMetric.mood}/5`}</strong><small>{todayMetric.energy == null ? `Energía ${missingValue}` : `Energía ${todayMetric.energy}/10`} · {todayMetric.stress == null ? `Estrés ${missingValue}` : `Estrés ${todayMetric.stress}/10`}</small></div></div>
-              <div className="metric-row"><div className="metric-icon"><Scale size={18} /></div><div><span>Peso actual</span><strong>{metricValue(todayMetric.weight, "kg")}</strong></div><span className="metric-change">{todayMetric.sleepHours == null ? missingValue : `${formatNumber(todayMetric.sleepHours)} h sueño`}</span></div>
-            </> : <EmptyState text="Todavía no has registrado tus métricas de hoy." action="Registrar ahora" onClick={() => onOpen({ kind: "metric" })} />}
+
+          <section className="today-v3-panel today-v3-checkin">
+            <header><div><span>CHECK-IN</span><h3>Cómo estás hoy</h3></div><button onClick={() => onOpen({ kind: "metric", record: todayMetric })}><Edit3 size={15}/></button></header>
+            {todayMetric ? <div className="today-v3-checkin-body">
+              <span className="today-v3-mood">{moodEmoji(todayMetric.mood) || "·"}</span>
+              <div><strong>{todayMetric.mood == null ? "Sin ánimo registrado" : `Ánimo ${todayMetric.mood}/5`}</strong><small>{todayMetric.energy == null ? "Energía —" : `Energía ${todayMetric.energy}/10`} · {todayMetric.stress == null ? "Estrés —" : `Estrés ${todayMetric.stress}/10`}</small></div>
+            </div> : <button className="today-v3-checkin-empty" onClick={() => onOpen({ kind: "metric" })}><Heart size={18}/><span><strong>Hacé tu check-in</strong><small>30 segundos para registrar cómo estás.</small></span><ArrowRight size={15}/></button>}
           </section>
-          <section className="card project-preview-card">
-            <div className="card-heading"><div><span className="section-label dark"><FolderKanban size={14} /> PROYECTOS</span><h3>En marcha</h3></div><button className="icon-button small" onClick={() => onNavigate("projects")}><ArrowRight size={17} /></button></div>
-            {activeProjects.slice(0, 3).map((project) => {
-              const tasks = data.projectTasks.filter((task) => task.projectId === project.id);
-              const done = tasks.filter((task) => task.status === "done").length;
-              const progress = tasks.length ? Math.round(done / tasks.length * 100) : 0;
-              return <button className="project-preview-row" key={project.id} onClick={() => onNavigate("projects")}><span className={`module-icon ${project.color}`}><FolderKanban size={17} /></span><span><strong>{project.title}</strong><small>{done}/{tasks.length} tareas · {progress}%</small></span><ArrowRight size={15} /></button>;
-            })}
-            {!activeProjects.length && <EmptyState text="Crea un proyecto para organizar tus negocios e ideas." action="Nuevo proyecto" onClick={() => onOpen({ kind: "project" })} />}
+
+          <section className="today-v3-panel today-v3-projects">
+            <header><div><span>EN MARCHA</span><h3>Proyectos activos</h3></div><button onClick={() => onNavigate("projects")}><ArrowRight size={15}/></button></header>
+            <div>
+              {activeProjects.slice(0,3).map((project) => {
+                const tasks = data.projectTasks.filter((task) => task.projectId === project.id);
+                const done = tasks.filter((task) => task.status === "done").length;
+                const progress = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+                return <button key={project.id} onClick={() => onNavigate("projects")}><span className="today-v3-project-dot"/><div><strong>{project.title}</strong><small>{done}/{tasks.length} tareas</small></div><b>{progress}%</b></button>;
+              })}
+              {!activeProjects.length && <button onClick={() => onOpen({ kind:"project" })}><span className="today-v3-project-dot"/><div><strong>Crear un proyecto</strong><small>Organizá trabajo o ideas</small></div><Plus size={15}/></button>}
+            </div>
           </section>
-          <ActiveProgram data={data} today={today} onOpen={onOpen} onNavigate={onNavigate} />
-        </div>
+
+          <section className="today-v3-weekly-note">
+            <span>ÚLTIMOS 7 DÍAS</span>
+            <div><strong>{weekHabitLogs.length}</strong><small>hábitos</small></div>
+            <div><strong>{formatMinutes(weekFocus)}</strong><small>foco</small></div>
+            <div><strong>{weekMood == null ? missingValue : formatDecimal(weekMood)}</strong><small>ánimo medio</small></div>
+            <div><strong>{journalStreak.current}</strong><small>racha journal</small></div>
+          </section>
+        </aside>
       </div>
     </div>
   );
