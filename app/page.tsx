@@ -117,6 +117,7 @@ type PlanGoal = {
 };
 type PlanTask = {
   id: string; goalId: string | null; projectId: string | null; title: string; period: string; priority: string;
+  importance?: "low" | "medium" | "high"; urgency?: "low" | "medium" | "high";
   status: "todo" | "doing" | "done"; dueDate: string | null;
 };
 type FocusSession = {
@@ -1257,29 +1258,159 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
   onSave: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
   onDelete: (resource: Resource, id: string) => void;
 }) {
-  const [view, setView] = useState<"day" | "week" | "month" | "goals" | "projects" | "focus" | "inbox">("day");
+  const [view, setView] = useState<"priorities" | "week" | "projects" | "goals" | "inbox">("priorities");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(data.projects[0]?.id ?? null);
   const weekStart = startOfWeek(today);
   const weekEnd = addDays(weekStart, 6);
-  const monthStart = `${today.slice(0, 7)}-01`;
-  const monthEnd = addDays(`${shiftMonth(today.slice(0, 7), 1)}-01`, -1);
-  const dayTasks = data.projectTasks.filter((task) => isAction(task) && task.status !== "done" && task.scheduledDate === today).sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || compareProjectTasks(a, b));
-  const dayAgenda = data.projectTasks.filter((task) => !isAction(task) && task.scheduledDate === today).sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || a.title.localeCompare(b.title, "es"));
-  const unscheduled = data.projectTasks.filter((task) => isAction(task) && task.status !== "done" && !task.scheduledDate).sort(compareProjectTasks);
-  const monthTasks = data.projectTasks.filter((task) => isAction(task) && task.scheduledDate && task.scheduledDate <= monthEnd && taskEndDate(task) >= monthStart).sort((a,b) => a.scheduledDate!.localeCompare(b.scheduledDate!) || compareProjectTasks(a,b));
-  const monthAgenda = data.projectTasks.filter((task) => !isAction(task) && task.scheduledDate && task.scheduledDate <= monthEnd && taskEndDate(task) >= monthStart).sort((a,b) => a.scheduledDate!.localeCompare(b.scheduledDate!) || (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || a.title.localeCompare(b.title, "es"));
-  const weekTasks = data.projectTasks.filter((task) => isAction(task) && task.status !== "done" && task.scheduledDate && task.scheduledDate >= weekStart && task.scheduledDate <= weekEnd);
   const selectedProject = data.projects.find((item) => item.id === selectedProjectId) ?? data.projects[0] ?? null;
-  const nav = [{ id:"day" as const, label:"Día", icon:CalendarDays },{ id:"week" as const, label:"Semana", icon:LayoutDashboard },{ id:"month" as const, label:"Mes", icon:CalendarDays },{ id:"goals" as const, label:"Objetivos", icon:Target },{ id:"projects" as const, label:"Proyectos", icon:FolderKanban },{ id:"focus" as const, label:"Foco", icon:Timer },{ id:"inbox" as const, label:"Inbox", icon:ListTodo }];
-  const taskButton = (task: ProjectTask) => <button className={`planner-task-row ${task.itemType || "task"}`} key={task.id} onClick={() => onOpen({ kind:"projectTask", projects:data.projects, record:task })}><span className={`priority-dot ${task.itemType === "event" ? "high" : task.itemType === "reminder" ? "medium" : task.priority || "medium"}`} /><div><strong>{task.scheduledTime ? `${task.scheduledTime} · ` : ""}{task.title}</strong><small>{!isAction(task) && task.scheduledDate ? `${formatShortDate(task.scheduledDate)} · ` : ""}{itemTypeLabel(task)}{task.itemType === "task" || !task.itemType ? ` · ${data.projects.find((project) => project.id === task.projectId)?.title ?? "Sin proyecto"} · ${task.estimatedMinutes != null ? formatMinutes(task.estimatedMinutes) : "Sin estimación"}` : task.description ? ` · ${task.description}` : ""}</small></div>{isAction(task) ? <span className={`energy-tag ${task.energy || "medium"}`}><Zap size={10}/>{energyLabel(task.energy)}</span> : <span className="agenda-kind">{task.itemType === "event" ? "Evento" : "Recordatorio"}</span>}</button>;
-  return <div className="page-content subpage planner-product"><section className="planner-product-hero"><div><span className="section-label dark"><LayoutDashboard size={14}/> PLANNER</span><h2>Tu sistema para decidir<br/>y ejecutar con claridad.</h2><p>Una misma tarea se ve en tu día, tu semana, tu mes y el objetivo que ayuda a construir.</p></div><div className="planner-create-actions"><button className="primary-button" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, defaultDate:today, defaultSprintWeek:weekStart })}><Plus size={16}/> Añadir tarea</button><button className="outline-compact" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, defaultDate:today, defaultSprintWeek:weekStart, defaultItemType:"event" })}><CalendarDays size={15}/> Evento</button><button className="outline-compact" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, defaultDate:today, defaultSprintWeek:weekStart, defaultItemType:"reminder" })}><Bell size={15}/> Recordatorio</button></div></section><div className="planner-nav" role="tablist">{nav.map(({id,label,icon:Icon}) => <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}><Icon size={15}/>{label}{id === "inbox" && unscheduled.length > 0 && <b>{unscheduled.length}</b>}</button>)}</div>
-  {view === "day" && <section className="planner-day"><div className="planner-day-heading"><div><span className="section-label dark">HOY · {formatLongDate(today)}</span><h3>Tu foco tiene espacio.</h3></div><div className="planner-load"><strong>{formatMinutes(dayTasks.reduce((sum,item) => sum + (item.estimatedMinutes ?? 0),0))}</strong><small>de carga planificada</small></div></div><div className="planner-day-grid"><section className="card planner-unscheduled"><div className="card-heading"><div><span className="section-label dark"><ListTodo size={14}/> TAREAS</span><h3>Para hacer hoy</h3></div><button className="add-inline top" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}>+ Tarea</button></div>{dayTasks.map(taskButton)}{!dayTasks.length && <EmptyState text="No tienes tareas para hoy. Elige una del Inbox o crea una nueva." action="Planificar tarea" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}/>}</section><section className="card planner-timeline"><div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14}/> AGENDA FIJA</span><h3>Eventos y recordatorios</h3></div><button className="add-inline top" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}>+ Añadir</button></div>{dayAgenda.map(taskButton)}{!dayAgenda.length && <p className="agenda-empty">No hay compromisos fijos. Añade un evento o recordatorio cuando no sea una tarea.</p>}</section></div><section className="planner-checkout"><div><span>CIERRE DEL DÍA</span><strong>Al terminar, revisa lo pendiente y decide: mañana, Inbox o eliminar.</strong></div><button onClick={() => setView("inbox")}>Abrir pendientes →</button></section></section>}
-  {view === "week" && <SprintWorkspace data={data} today={today} defaultProject={selectedProject} onOpen={onOpen} onSave={onSave} onDelete={(id) => onDelete("projectTask", id)} />}
-  {view === "month" && <section className="planner-month"><div className="planner-month-header"><div><span className="section-label dark"><CalendarDays size={14}/> MES · {monthLabel(today.slice(0,7))}</span><h3>Ritmo, carga y dirección.</h3></div><div><strong>{monthTasks.length + monthAgenda.length}</strong><small>{monthTasks.length} tareas · {monthAgenda.length} en agenda</small></div></div><div className="planner-month-layout"><section className="card planner-month-list"><div className="card-heading"><div><span className="section-label dark">CALENDARIO DE ACCIÓN</span><h3>Próximas tareas</h3></div></div>{monthTasks.slice(0,14).map(taskButton)}{!monthTasks.length && <EmptyState text="No hay tareas programadas este mes." action="Abrir semana" onClick={() => setView("week")}/>}<div className="month-agenda-divider"><span className="section-label dark"><CalendarDays size={13}/> AGENDA DEL MES</span><h3>Eventos y recordatorios</h3></div>{monthAgenda.slice(0,14).map(taskButton)}{!monthAgenda.length && <p className="agenda-empty">No hay eventos ni recordatorios programados este mes.</p>}</section><aside className="card planner-month-goals"><span className="section-label dark"><Target size={14}/> OBJETIVOS DEL MES</span>{data.planGoals.filter((goal) => goal.scope === "month" && goal.period === today.slice(0,7)).map((goal) => { const p = goalCompletion(goal,data.planTasks,data.projectTasks).progress; return <button key={goal.id} onClick={() => onOpen({kind:"planGoal",projects:data.projects,record:goal})}><strong>{goal.title}</strong><span>{p == null ? "Sin tareas asociadas" : `${p}% de avance`}</span><i><b style={{width:`${p ?? 0}%`}}/></i></button>; })}<button className="month-goal-add" onClick={() => onOpen({kind:"planGoal",projects:data.projects,defaultScope:"month",defaultPeriod:today.slice(0,7)})}>+ Definir objetivo mensual</button></aside></div></section>}
-  {view === "goals" && <PlanningView data={data} today={today} embedded onOpen={onOpen} onSave={onSave} onDelete={onDelete}/>} 
-  {view === "projects" && <section className="planner-projects"><div className="planner-section-top"><div><span className="section-label dark"><FolderKanban size={14}/> ÁREAS Y PROYECTOS</span><h3>El contexto detrás de tus tareas.</h3></div><button className="primary-button" onClick={() => onOpen({kind:"project"})}><Plus size={15}/> Nuevo proyecto</button></div><div className="planner-project-grid">{data.projects.map((project) => {const tasks=data.projectTasks.filter((task)=>task.projectId===project.id);const done=tasks.filter((task)=>task.status==="done").length;const progress=tasks.length?Math.round(done/tasks.length*100):0;return <button key={project.id} className={`planner-project-card ${selectedProjectId===project.id?"selected":""}`} onClick={()=>setSelectedProjectId(project.id)}><span className={`module-icon ${project.color}`}><FolderKanban size={18}/></span><small>{project.area} · {projectStatus(project.status)}</small><strong>{project.title}</strong><p>{done}/{tasks.length} tareas completadas</p><i><b style={{width:`${progress}%`}}/></i><em>{progress}%</em></button>; })}<button className="planner-new-project" onClick={() => onOpen({kind:"project"})}>＋<strong>Crear proyecto</strong><small>Conecta trabajo, salud, finanzas o aprendizaje</small></button></div>{selectedProject && <section className="card planner-project-detail"><div><span className="section-label dark">PROYECTO SELECCIONADO</span><h3>{selectedProject.title}</h3><p>{selectedProject.description || "Añade un resultado esperado para dar contexto a este proyecto."}</p></div><div>{data.projectTasks.filter((task)=>task.projectId===selectedProject.id && task.status!=="done").slice(0,4).map(taskButton)}<button className="add-inline" onClick={() => onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,defaultDate:today})}>+ Añadir tarea al proyecto</button></div></section>}</section>}
-  {view === "focus" && <section className="planner-focus"><div className="planner-section-top"><div><span className="section-label dark"><Timer size={14}/> FOCO Y ENERGÍA</span><h3>Entiende dónde se va tu semana.</h3></div></div><div className="planner-focus-grid"><section className="card"><span className="section-label dark">CARGA SEMANAL</span><h3>{formatMinutes(weekTasks.reduce((sum,item)=>sum+(item.estimatedMinutes??0),0))}</h3><p>planificados entre {weekTasks.length} tareas pendientes.</p><div className="area-bars">{data.projects.slice(0,5).map(project=>{const minutes=weekTasks.filter(task=>task.projectId===project.id).reduce((sum,item)=>sum+(item.estimatedMinutes??0),0);return <div key={project.id}><span>{project.title}</span><i><b style={{width:`${Math.min(100,minutes/360*100)}%`}}/></i><small>{formatMinutes(minutes)}</small></div>; })}</div></section><section className="card"><span className="section-label dark">ENERGÍA REQUERIDA</span><h3>Distribución del foco</h3>{(["high","medium","low"] as const).map(level=>{const tasks=weekTasks.filter(task=>task.energy===level);return <div className="energy-summary" key={level}><span className={level}>{level==="high"?"⚡⚡⚡":level==="medium"?"⚡⚡":"⚡"}</span><div><strong>{energyLabel(level)}</strong><small>{tasks.length} tareas · {formatMinutes(tasks.reduce((sum,item)=>sum+(item.estimatedMinutes??0),0))}</small></div></div>; })}</section></div></section>}
-  {view === "inbox" && <section className="planner-inbox"><div className="planner-section-top"><div><span className="section-label dark"><ListTodo size={14}/> INBOX</span><h3>Captura primero. Decide después.</h3><p>Todo lo que aún no tiene fecha vive aquí, sin perderse entre notas o tareas.</p></div><button className="primary-button" onClick={() => onOpen({kind:"projectTask",projects:data.projects})}><Plus size={15}/> Capturar tarea</button></div><section className="card planner-inbox-list">{unscheduled.map(taskButton)}{!unscheduled.length && <EmptyState text="Inbox vacío. Tus próximas ideas aparecerán aquí hasta que las programes." action="Capturar tarea" onClick={() => onOpen({kind:"projectTask",projects:data.projects})}/>}</section></section>}
+  const openTasks = data.projectTasks.filter((task) => isAction(task) && task.status !== "done");
+  const weekTasks = openTasks.filter((task) => {
+    const date = task.scheduledDate || task.dueDate;
+    return !!date && date >= weekStart && date <= weekEnd;
+  }).sort(compareProjectTasks);
+  const unscheduled = openTasks.filter((task) => !task.scheduledDate && !task.dueDate).sort(compareProjectTasks);
+  const critical = openTasks.filter((task) => task.importance === "high" && task.urgency === "high").sort(compareProjectTasks);
+  const important = openTasks.filter((task) => task.importance === "high" && task.urgency !== "high").sort(compareProjectTasks);
+  const urgent = openTasks.filter((task) => task.urgency === "high" && task.importance !== "high").sort(compareProjectTasks);
+  const lowPressure = openTasks.filter((task) => task.importance !== "high" && task.urgency !== "high").sort(compareProjectTasks);
+  const weeklyTop = [...weekTasks].sort(compareProjectTasks).slice(0, 6);
+  const nav = [
+    { id:"priorities" as const, label:"Prioridades", icon:Target },
+    { id:"week" as const, label:"Semana", icon:CalendarDays },
+    { id:"projects" as const, label:"Roadmap", icon:FolderKanban },
+    { id:"goals" as const, label:"Objetivos", icon:Star },
+    { id:"inbox" as const, label:"Inbox", icon:ListTodo },
+  ];
+
+  async function advanceTask(task: ProjectTask) {
+    const status: ProjectTask["status"] = task.status === "todo" ? "doing" : task.status === "doing" ? "done" : "todo";
+    await onSave("projectTask", { ...task, status }, status === "done" ? "Tarea completada" : "Estado actualizado");
+  }
+
+  const taskRow = (task: ProjectTask, showProject = true) => {
+    const project = data.projects.find((item) => item.id === task.projectId);
+    return <article className={`planner-v4-task ${task.status} ${task.milestone ? "milestone" : ""}`} key={task.id}>
+      <button className="planner-v4-check" onClick={() => advanceTask(task)} aria-label={`Cambiar estado de ${task.title}`}>{task.status === "doing" ? <Activity size={15}/> : <Circle size={15}/>}</button>
+      <button className="planner-v4-task-main" onClick={() => onOpen({kind:"projectTask",projects:data.projects,record:task})}>
+        <div className="planner-v4-task-title"><strong>{task.title}</strong>{task.milestone && <span className="milestone-chip"><Star size={10}/> Hito</span>}</div>
+        <small>{showProject ? `${project?.title ?? "Sin proyecto"} · ` : ""}{task.dueDate ? `vence ${formatShortDate(task.dueDate)}` : task.scheduledDate ? formatShortDate(task.scheduledDate) : "Sin fecha"}{task.estimatedMinutes ? ` · ${formatMinutes(task.estimatedMinutes)}` : ""}</small>
+      </button>
+      <div className="planner-v4-levels">
+        <span className={`importance ${task.importance || "medium"}`}>I · {taskLevelLabel(task.importance)}</span>
+        <span className={`urgency ${task.urgency || "medium"}`}>U · {taskLevelLabel(task.urgency)}</span>
+      </div>
+    </article>;
+  };
+
+  return <div className="page-content subpage planner-v4">
+    <section className="planner-v4-hero">
+      <div>
+        <span className="section-label dark"><Target size={14}/> PLANIFICACIÓN</span>
+        <h2>Ordená lo importante.<br/>Después ejecutá.</h2>
+        <p>Clasificá cada tarea por importancia y urgencia, concentrá la semana en lo que realmente mueve tus proyectos y seguí cada roadmap de principio a fin.</p>
+      </div>
+      <div className="planner-v4-create">
+        <button className="primary-button" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}><Plus size={16}/> Nueva tarea</button>
+        <button className="outline-compact" onClick={() => onOpen({kind:"project"})}><FolderKanban size={15}/> Nuevo proyecto</button>
+      </div>
+    </section>
+
+    <nav className="planner-v4-tabs" aria-label="Vistas de planificación">
+      {nav.map(({id,label,icon:Icon}) => <button key={id} className={view===id?"active":""} onClick={()=>setView(id)}><Icon size={15}/><span>{label}</span>{id==="inbox"&&unscheduled.length>0&&<b>{unscheduled.length}</b>}</button>)}
+    </nav>
+
+    {view==="priorities" && <div className="planner-v4-priorities">
+      <section className="planner-v4-week-focus">
+        <header><div><span>FOCO DE LA SEMANA</span><h3>Lo que más merece tu atención</h3><p>Ordenado automáticamente combinando importancia, urgencia y fecha.</p></div><strong>{weekTasks.length}</strong></header>
+        <div className="planner-v4-top-list">{weeklyTop.map(task=>taskRow(task))}{!weeklyTop.length&&<EmptyState text="No hay tareas con fecha para esta semana." action="Planificar tarea" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}/>}</div>
+      </section>
+
+      <section className="planner-v4-matrix">
+        <article className="planner-v4-quadrant critical">
+          <header><span><Flame size={15}/> IMPORTANTE + URGENTE</span><strong>{critical.length}</strong></header>
+          <h3>Hacer primero</h3><p>Tareas que requieren acción inmediata y tienen impacto alto.</p>
+          <div>{critical.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+        <article className="planner-v4-quadrant strategic">
+          <header><span><Target size={15}/> IMPORTANTE</span><strong>{important.length}</strong></header>
+          <h3>Planificar y proteger</h3><p>Trabajo relevante que conviene reservar antes de que se vuelva urgente.</p>
+          <div>{important.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+        <article className="planner-v4-quadrant urgent">
+          <header><span><Zap size={15}/> URGENTE</span><strong>{urgent.length}</strong></header>
+          <h3>Resolver con criterio</h3><p>Necesita rapidez, pero no debería desplazar el trabajo de mayor impacto.</p>
+          <div>{urgent.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+        <article className="planner-v4-quadrant low">
+          <header><span><Circle size={15}/> BAJA PRESIÓN</span><strong>{lowPressure.length}</strong></header>
+          <h3>Agrupar o posponer</h3><p>Acciones de menor impacto y menor urgencia para huecos específicos.</p>
+          <div>{lowPressure.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+      </section>
+    </div>}
+
+    {view==="week" && <section className="planner-v4-week">
+      <div className="planner-v4-section-heading"><div><span className="section-label dark"><CalendarDays size={14}/> SEMANA ACTUAL</span><h3>{formatShortDate(weekStart)} — {formatShortDate(weekEnd)}</h3><p>Distribuí la carga sin perder de vista qué tareas son realmente prioritarias.</p></div><button className="primary-button" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}><Plus size={15}/> Añadir tarea</button></div>
+      <div className="planner-v4-week-days">{Array.from({length:7},(_,i)=>addDays(weekStart,i)).map(date=>{
+        const tasks=weekTasks.filter(task=>(task.scheduledDate||task.dueDate)===date).sort(compareProjectTasks);
+        return <section className={`planner-v4-day ${date===today?"today":""}`} key={date}><header><span>{date===today?"HOY":shortDay(date)}</span><strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong><small>{tasks.length} tareas</small></header><div>{tasks.map(task=>taskRow(task,false))}</div></section>;
+      })}</div>
+    </section>}
+
+    {view==="projects" && <section className="planner-v4-roadmap">
+      <div className="planner-v4-section-heading"><div><span className="section-label dark"><FolderKanban size={14}/> PROYECTOS Y ROADMAP</span><h3>Seguimiento de punta a punta</h3><p>Seleccioná un proyecto para ver hitos, trabajo pendiente y todo lo que ya se completó.</p></div><button className="primary-button" onClick={()=>onOpen({kind:"project"})}><Plus size={15}/> Nuevo proyecto</button></div>
+      <div className="planner-v4-roadmap-layout">
+        <aside className="planner-v4-project-list">
+          {data.projects.map(project=>{
+            const tasks=data.projectTasks.filter(task=>task.projectId===project.id&&isAction(task));
+            const done=tasks.filter(task=>task.status==="done").length;
+            const progress=tasks.length?Math.round(done/tasks.length*100):0;
+            return <button key={project.id} className={selectedProject?.id===project.id?"active":""} onClick={()=>setSelectedProjectId(project.id)}>
+              <span className="planner-v4-project-dot"/>
+              <div><small>{project.area} · {projectStatus(project.status)}</small><strong>{project.title}</strong><i><b style={{width:`${progress}%`}}/></i></div>
+              <em>{progress}%</em>
+            </button>;
+          })}
+          <button className="planner-v4-new-project" onClick={()=>onOpen({kind:"project"})}><Plus size={16}/> Crear proyecto</button>
+        </aside>
+
+        {selectedProject ? <div className="planner-v4-roadmap-main">
+          <header className="planner-v4-project-header">
+            <div><span>{selectedProject.area.toUpperCase()}</span><h3>{selectedProject.title}</h3><p>{selectedProject.description||"Añadí una descripción para definir el resultado esperado de este proyecto."}</p></div>
+            <div><button className="outline-compact" onClick={()=>onOpen({kind:"project",record:selectedProject})}><Edit3 size={14}/> Editar</button><button className="primary-button" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,defaultDate:today})}><Plus size={14}/> Añadir tarea</button></div>
+          </header>
+          {(()=>{
+            const tasks=data.projectTasks.filter(task=>task.projectId===selectedProject.id&&isAction(task));
+            const roadmap=[...tasks].sort((a,b)=>(a.scheduledDate||a.dueDate||a.completedAt||"9999-12-31").localeCompare(b.scheduledDate||b.dueDate||b.completedAt||"9999-12-31")||compareProjectTasks(a,b));
+            const done=tasks.filter(task=>task.status==="done");
+            const pending=tasks.filter(task=>task.status!=="done");
+            const milestones=tasks.filter(task=>task.milestone);
+            const progress=tasks.length?Math.round(done.length/tasks.length*100):0;
+            return <>
+              <div className="planner-v4-project-stats"><div><span>PROGRESO</span><strong>{progress}%</strong><small>{done.length}/{tasks.length} completadas</small></div><div><span>HITOS</span><strong>{milestones.length}</strong><small>{milestones.filter(task=>task.status==="done").length} alcanzados</small></div><div><span>PENDIENTES</span><strong>{pending.length}</strong><small>{pending.filter(task=>task.importance==="high").length} de alta importancia</small></div></div>
+              <section className="planner-v4-timeline">
+                <div className="planner-v4-timeline-line"/>
+                {roadmap.map(task=><article className={`planner-v4-roadmap-item ${task.status} ${task.milestone?"milestone":""}`} key={task.id}>
+                  <span className="planner-v4-roadmap-node">{task.status==="done"?<Check size={13}/>:task.milestone?<Star size={13}/>:<Circle size={11}/>}</span>
+                  <div className="planner-v4-roadmap-content">
+                    <header><div><small>{task.status==="done"?"COMPLETADO":task.status==="doing"?"EN CURSO":"PRÓXIMO"} {task.milestone?"· HITO":""}</small><strong>{task.title}</strong></div><div className="planner-v4-levels"><span className={`importance ${task.importance||"medium"}`}>I · {taskLevelLabel(task.importance)}</span><span className={`urgency ${task.urgency||"medium"}`}>U · {taskLevelLabel(task.urgency)}</span></div></header>
+                    <p>{task.description||"Sin detalle adicional."}</p>
+                    <footer><span><CalendarDays size={12}/>{task.dueDate?formatShortDate(task.dueDate):task.scheduledDate?formatShortDate(task.scheduledDate):"Sin fecha"}</span>{task.estimatedMinutes&&<span><Timer size={12}/>{formatMinutes(task.estimatedMinutes)}</span>}<button onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,record:task})}>Editar</button></footer>
+                  </div>
+                </article>)}
+                {!roadmap.length&&<EmptyState text="Este proyecto todavía no tiene tareas ni hitos." action="Añadir primera tarea" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,defaultDate:today})}/>}
+              </section>
+            </>;
+          })()}
+        </div> : <div className="planner-v4-roadmap-main"><EmptyState text="Creá o seleccioná un proyecto para construir su roadmap."/></div>}
+      </div>
+    </section>}
+
+    {view==="goals" && <PlanningView data={data} today={today} embedded onOpen={onOpen} onSave={onSave} onDelete={onDelete}/>}
+    {view==="inbox" && <section className="planner-v4-inbox">
+      <div className="planner-v4-section-heading"><div><span className="section-label dark"><ListTodo size={14}/> INBOX</span><h3>Capturá primero, clasificá después.</h3><p>Las tareas sin fecha quedan acá hasta que decidas importancia, urgencia y cuándo hacerlas.</p></div><button className="primary-button" onClick={()=>onOpen({kind:"projectTask",projects:data.projects})}><Plus size={15}/> Capturar tarea</button></div>
+      <div className="planner-v4-inbox-list">{unscheduled.map(task=>taskRow(task))}{!unscheduled.length&&<EmptyState text="Inbox vacío. No hay tareas sin clasificar." action="Crear tarea" onClick={()=>onOpen({kind:"projectTask",projects:data.projects})}/>}</div>
+    </section>}
   </div>;
 }
 
@@ -1499,7 +1630,7 @@ function ProjectForm({ record, today, busy, onSubmit }: { record?: Project; toda
 
 function ProjectTaskForm({ projects, goals, project, record, defaultDate, defaultSprintWeek, defaultItemType, busy, onSubmit }: { projects: Project[]; goals: PlanGoal[]; project?: Project; record?: ProjectTask; defaultDate?: string; defaultSprintWeek?: string; defaultItemType?: ProjectTask["itemType"]; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
   const initialDate = record?.scheduledDate ?? defaultDate ?? "";
-  const [form, setForm] = useState({ id: record?.id, itemType: record?.itemType ?? defaultItemType ?? "task" as ProjectTask["itemType"], projectId: record?.projectId ?? project?.id ?? projects[0]?.id ?? "", goalId: record?.goalId ?? "", title: record?.title ?? "", description: record?.description ?? "", status: record?.status ?? "todo", priority: record?.priority ?? "medium", energy: record?.energy ?? "medium", estimatedMinutes: record?.estimatedMinutes ?? "", scheduledDate: initialDate, scheduledTime: record?.scheduledTime ?? "", endDate: record?.endDate ?? initialDate, sprintWeek: record?.sprintWeek ?? (initialDate ? startOfWeek(initialDate) : defaultSprintWeek ?? ""), dueDate: record?.dueDate ?? "" });
+  const [form, setForm] = useState({ id: record?.id, itemType: record?.itemType ?? defaultItemType ?? "task" as ProjectTask["itemType"], projectId: record?.projectId ?? project?.id ?? projects[0]?.id ?? "", goalId: record?.goalId ?? "", title: record?.title ?? "", description: record?.description ?? "", status: record?.status ?? "todo", priority: record?.priority ?? "medium", importance: record?.importance ?? "medium", urgency: record?.urgency ?? "medium", milestone: record?.milestone ?? false, energy: record?.energy ?? "medium", estimatedMinutes: record?.estimatedMinutes ?? "", scheduledDate: initialDate, scheduledTime: record?.scheduledTime ?? "", endDate: record?.endDate ?? initialDate, sprintWeek: record?.sprintWeek ?? (initialDate ? startOfWeek(initialDate) : defaultSprintWeek ?? ""), dueDate: record?.dueDate ?? "" });
   function schedule(date: string) { setForm({ ...form, scheduledDate: date, endDate: !form.endDate || form.endDate < date ? date : form.endDate, sprintWeek: date ? startOfWeek(date) : form.sprintWeek }); }
   function selectGoal(goalId: string) { const selected = goals.find((goal) => goal.id === goalId); setForm({ ...form, goalId, projectId: selected?.projectId ?? form.projectId }); }
   const isTask = form.itemType === "task";
@@ -1512,7 +1643,7 @@ function ProjectTaskForm({ projects, goals, project, record, defaultDate, defaul
     <div className="form-grid">
       <label>Área / proyecto<select required={isTask} value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Sin proyecto</option>{projects.map((item) => <option key={item.id} value={item.id}>{item.area} · {item.title}</option>)}</select></label>
       {isTask && <label>Objetivo que impulsa (opcional)<select value={form.goalId} onChange={(event) => selectGoal(event.target.value)}><option value="">Sin objetivo vinculado</option>{goals.filter((goal) => goal.status !== "done").map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></label>}
-      {isTask && <><label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProjectTask["status"] })}><option value="todo">Por hacer</option><option value="doing">En curso</option><option value="done">Hecha</option></select></label><label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta · destacar en agenda</option></select></label><label>Energía necesaria<select value={form.energy} onChange={(event) => setForm({ ...form, energy: event.target.value as ProjectTask["energy"] })}><option value="low">⚡ Baja</option><option value="medium">⚡⚡ Media</option><option value="high">⚡⚡⚡ Alta</option></select></label><label>Tiempo estimado (min)<input required type="number" min="5" max="1440" step="5" value={form.estimatedMinutes} onChange={(event) => setForm({ ...form, estimatedMinutes: event.target.value })} placeholder="Ej. 45" /></label></>}
+      {isTask && <><label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProjectTask["status"] })}><option value="todo">Por hacer</option><option value="doing">En curso</option><option value="done">Hecha</option></select></label><label>Importancia<select value={form.importance} onChange={(event) => setForm({ ...form, importance: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta · tiene impacto</option></select></label><label>Urgencia<select value={form.urgency} onChange={(event) => setForm({ ...form, urgency: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta · requiere atención pronto</option></select></label><label>Energía necesaria<select value={form.energy} onChange={(event) => setForm({ ...form, energy: event.target.value as ProjectTask["energy"] })}><option value="low">⚡ Baja</option><option value="medium">⚡⚡ Media</option><option value="high">⚡⚡⚡ Alta</option></select></label><label>Tiempo estimado (min)<input required type="number" min="5" max="1440" step="5" value={form.estimatedMinutes} onChange={(event) => setForm({ ...form, estimatedMinutes: event.target.value })} placeholder="Ej. 45" /></label><label className="toggle-label"><input type="checkbox" checked={form.milestone} onChange={(event) => setForm({ ...form, milestone: event.target.checked })} /> Marcar como hito del proyecto</label></>}
       <label>Empieza<input required={!isTask} type="date" value={form.scheduledDate} onChange={(event) => schedule(event.target.value)} /><small className="field-help">{isTask ? "Déjala vacía para Inbox." : "Fija cuándo debe aparecer en tu agenda."}</small></label><label>Hora fija<input type="time" value={form.scheduledTime} onChange={(event) => setForm({ ...form, scheduledTime: event.target.value })} /></label><label>Termina<input type="date" min={form.scheduledDate} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>{isTask && <label>Fecha límite<input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label>}
     </div><SubmitButton busy={busy} label={record ? "Guardar cambios" : `Crear ${typeLabel.toLocaleLowerCase("es")}`} />
   </form>;
@@ -1540,7 +1671,7 @@ function PlanGoalForm({ projects, goals, record, defaultScope, defaultPeriod, to
 }
 
 function PlanTaskForm({ goal, goals, projects, record, defaultPeriod, today, busy, onSubmit }: { goal?: PlanGoal; goals: PlanGoal[]; projects: Project[]; record?: PlanTask; defaultPeriod?: string; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
-  const [form, setForm] = useState({ id: record?.id, goalId: record?.goalId ?? goal?.id ?? "", projectId: record?.projectId ?? goal?.projectId ?? "", title: record?.title ?? "", period: record?.period ?? defaultPeriod ?? today.slice(0, 7), priority: record?.priority ?? "medium", status: record?.status ?? "todo", dueDate: record?.dueDate ?? "" });
+  const [form, setForm] = useState({ id: record?.id, goalId: record?.goalId ?? goal?.id ?? "", projectId: record?.projectId ?? goal?.projectId ?? "", title: record?.title ?? "", period: record?.period ?? defaultPeriod ?? today.slice(0, 7), priority: record?.priority ?? "medium", importance: record?.importance ?? "medium", urgency: record?.urgency ?? "medium", status: record?.status ?? "todo", dueDate: record?.dueDate ?? "" });
   function changeGoal(goalId: string) {
     const selectedGoal = goals.find((item) => item.id === goalId);
     setForm({ ...form, goalId, projectId: selectedGoal?.projectId ?? form.projectId, period: selectedGoal?.scope === "month" ? selectedGoal.period : form.period });
@@ -1552,7 +1683,7 @@ function PlanTaskForm({ goal, goals, projects, record, defaultPeriod, today, bus
       {!goal && <label>Objetivo (opcional)<select value={form.goalId} onChange={(event) => changeGoal(event.target.value)}><option value="">Tarea independiente</option>{goals.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}
       <label>Mes del plan<input required type="month" value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })} /></label>
       <label>Proyecto relacionado<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Sin proyecto</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label>
-      <label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
+      <label>Importancia<select value={form.importance} onChange={(event) => setForm({ ...form, importance: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label><label>Urgencia<select value={form.urgency} onChange={(event) => setForm({ ...form, urgency: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
       <label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as PlanTask["status"] })}><option value="todo">Por hacer</option><option value="doing">En curso</option><option value="done">Hecha</option></select></label>
       <label>Fecha límite<input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label>
     </div>
@@ -1733,7 +1864,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     const scheduledDate = typeof payload.scheduledDate === "string" && payload.scheduledDate ? payload.scheduledDate : null;
     const itemType = payload.itemType === "event" || payload.itemType === "reminder" ? payload.itemType : "task";
     const status = itemType === "task" && payload.status === "done" ? "done" : itemType === "task" && payload.status === "doing" ? "doing" : "todo";
-    const record = normalizeProjectTask({ ...payload, id, itemType, status, scheduledDate, endDate: payload.endDate || scheduledDate, sprintWeek: scheduledDate ? startOfWeek(scheduledDate) : payload.sprintWeek || null, dueDate: itemType === "task" ? payload.dueDate || null : null, goalId: itemType === "task" ? payload.goalId || null : null, scheduledTime: payload.scheduledTime || null, completedAt: status === "done" ? payload.completedAt || argentinaDateKey(new Date()) : null, estimatedMinutes: itemType === "task" ? nullableNumber(payload.estimatedMinutes) : null } as unknown as ProjectTask);
+    const record = normalizeProjectTask({ ...payload, id, itemType, status, scheduledDate, endDate: payload.endDate || scheduledDate, sprintWeek: scheduledDate ? startOfWeek(scheduledDate) : payload.sprintWeek || null, dueDate: itemType === "task" ? payload.dueDate || null : null, goalId: itemType === "task" ? payload.goalId || null : null, scheduledTime: payload.scheduledTime || null, completedAt: status === "done" ? payload.completedAt || argentinaDateKey(new Date()) : null, estimatedMinutes: itemType === "task" ? nullableNumber(payload.estimatedMinutes) : null, importance: itemType === "task" ? payload.importance || "medium" : "medium", urgency: itemType === "task" ? payload.urgency || "medium" : "medium", milestone: itemType === "task" ? Boolean(payload.milestone) : false } as unknown as ProjectTask);
     return { ...current, projectTasks: upsertLocal(current.projectTasks, record) };
   }
   if (resource === "planGoal") {
@@ -1741,7 +1872,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, planGoals: upsertLocal(current.planGoals, record) };
   }
   if (resource === "planTask") {
-    const record = { ...payload, id, goalId: payload.goalId || null, projectId: payload.projectId || null, period: payload.period || (typeof payload.dueDate === "string" ? payload.dueDate.slice(0, 7) : argentinaDateKey(new Date()).slice(0, 7)), priority: payload.priority || "medium", dueDate: payload.dueDate || null } as unknown as PlanTask;
+    const record = { ...payload, id, goalId: payload.goalId || null, projectId: payload.projectId || null, period: payload.period || (typeof payload.dueDate === "string" ? payload.dueDate.slice(0, 7) : argentinaDateKey(new Date()).slice(0, 7)), priority: payload.priority || "medium", importance: payload.importance || "medium", urgency: payload.urgency || "medium", dueDate: payload.dueDate || null } as unknown as PlanTask;
     return { ...current, planTasks: upsertLocal(current.planTasks, record) };
   }
   if (resource === "focusSession") {
@@ -1844,6 +1975,9 @@ function normalizeProjectTask(task: ProjectTask): ProjectTask {
     ...task,
     itemType,
     priority: task.priority || "medium",
+    importance: task.importance === "low" || task.importance === "high" ? task.importance : "medium",
+    urgency: task.urgency === "low" || task.urgency === "high" ? task.urgency : "medium",
+    milestone: Boolean(task.milestone),
     energy: task.energy === "low" || task.energy === "high" ? task.energy : "medium",
     status: itemType === "task" ? task.status === "done" ? "done" : task.status === "doing" ? "doing" : "todo" : "todo",
     estimatedMinutes: itemType !== "task" || task.estimatedMinutes == null || !Number.isFinite(Number(task.estimatedMinutes)) ? null : Math.max(5, Math.round(Number(task.estimatedMinutes))),
@@ -1876,10 +2010,14 @@ function sprintTaskLanes(tasks: ProjectTask[], weekStart: string, weekEnd: strin
   });
 }
 
+function taskLevelRank(value?: string) { return value === "high" ? 3 : value === "low" ? 1 : 2; }
+function taskPriorityScore(task: Pick<ProjectTask, "importance" | "urgency">) { return taskLevelRank(task.importance) * 3 + taskLevelRank(task.urgency) * 2; }
+function taskLevelLabel(value?: string) { return value === "high" ? "Alta" : value === "low" ? "Baja" : "Media"; }
 function compareProjectTasks(a: ProjectTask, b: ProjectTask) {
-  const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const score = taskPriorityScore(b) - taskPriorityScore(a);
+  const due = (a.dueDate || a.scheduledDate || "9999-12-31").localeCompare(b.dueDate || b.scheduledDate || "9999-12-31");
   const energyRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
-  return (priorityRank[a.priority] ?? 1) - (priorityRank[b.priority] ?? 1) || (energyRank[a.energy] ?? 1) - (energyRank[b.energy] ?? 1) || a.title.localeCompare(b.title, "es");
+  return score || due || (energyRank[a.energy] ?? 1) - (energyRank[b.energy] ?? 1) || a.title.localeCompare(b.title, "es");
 }
 
 function focusCategoryNames(sessions: FocusSession[]) {
