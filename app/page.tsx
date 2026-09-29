@@ -106,10 +106,11 @@ type Project = {
 };
 type ProjectTask = {
   id: string; projectId: string; title: string; description: string; status: "todo" | "doing" | "done";
-  priority: string; dueDate: string | null; scheduledDate: string | null; sprintWeek: string | null;
+  priority: string; importance?: "low" | "medium" | "high"; urgency?: "low" | "medium" | "high";
+  dueDate: string | null; scheduledDate: string | null; sprintWeek: string | null;
   endDate?: string | null; estimatedMinutes: number | null; energy: "low" | "medium" | "high";
   goalId?: string | null; scheduledTime?: string | null; completedAt?: string | null;
-  itemType?: "task" | "reminder" | "event";
+  itemType?: "task" | "reminder" | "event"; milestone?: boolean;
 };
 type PlanGoal = {
   id: string; title: string; description: string; scope: "week" | "month" | "quarter" | "semester" | "year"; period: string;
