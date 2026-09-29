@@ -106,10 +106,11 @@ type Project = {
 };
 type ProjectTask = {
   id: string; projectId: string; title: string; description: string; status: "todo" | "doing" | "done";
-  priority: string; dueDate: string | null; scheduledDate: string | null; sprintWeek: string | null;
+  priority: string; importance?: "low" | "medium" | "high"; urgency?: "low" | "medium" | "high";
+  dueDate: string | null; scheduledDate: string | null; sprintWeek: string | null;
   endDate?: string | null; estimatedMinutes: number | null; energy: "low" | "medium" | "high";
   goalId?: string | null; scheduledTime?: string | null; completedAt?: string | null;
-  itemType?: "task" | "reminder" | "event";
+  itemType?: "task" | "reminder" | "event"; milestone?: boolean;
 };
 type PlanGoal = {
   id: string; title: string; description: string; scope: "week" | "month" | "quarter" | "semester" | "year"; period: string;
@@ -117,6 +118,7 @@ type PlanGoal = {
 };
 type PlanTask = {
   id: string; goalId: string | null; projectId: string | null; title: string; period: string; priority: string;
+  importance?: "low" | "medium" | "high"; urgency?: "low" | "medium" | "high";
   status: "todo" | "doing" | "done"; dueDate: string | null;
 };
 type FocusSession = {
@@ -476,7 +478,7 @@ export default function HomePage() {
 
         {error && <div className="error-banner">{error}</div>}
         <>
-            {view === "today" && <TodayView data={data} today={today} onToggleHabit={toggleHabit} onToggleBullet={toggleBullet} onNavigate={navigate} onOpen={setModal} />}
+            {view === "today" && <TodayView data={data} today={today} onToggleHabit={toggleHabit} onToggleBullet={toggleBullet} onNavigate={navigate} onOpen={setModal} onSave={save} />}
             {view === "focus" && <FocusView data={data} today={today} onSave={save} onDelete={(id) => remove("focusSession", id)} />}
             {view === "habits" && <HabitsView data={data} today={today} onToggle={toggleHabit} onOpen={setModal} onDelete={(id) => remove("habit", id)} />}
             {view === "metrics" && <MetricsView data={data} onOpen={setModal} onDelete={(id) => remove("metric", id)} />}
@@ -517,10 +519,11 @@ export default function HomePage() {
   );
 }
 
-function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onOpen }: {
+function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onOpen, onSave }: {
   data: LifeData; today: string;
   onToggleHabit: (habit: Habit, date?: string) => Promise<void>; onToggleBullet: (item: BulletItem) => Promise<void>;
   onNavigate: (view: View) => void; onOpen: (modal: Modal) => void;
+  onSave: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
 }) {
   const todayLogs = data.habitLogs.filter((log) => log.date === today && log.done);
   const todayMetric = data.metrics.find((item) => item.date === today);
@@ -531,82 +534,170 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
   const weekEnd = addDays(today, 6);
   const weekTimelineDays = Array.from({ length: 7 }, (_, index) => addDays(today, index));
   const upcomingProjectTasks = data.projectTasks.filter((task) => task.status !== "done" && task.scheduledDate && task.scheduledDate >= today && task.scheduledDate <= weekEnd);
-  const upcomingGoals = data.planGoals.filter((goal) => !goalCompletion(goal, data.planTasks, data.projectTasks).complete && goal.targetDate && goal.targetDate >= today && goal.targetDate <= weekEnd);
-  const upcomingPlan = [
-    ...upcomingProjectTasks.map((task) => ({ id: task.id, title: task.title, date: task.scheduledDate as string, type: "Sprint", projectId: task.projectId })),
-    ...upcomingGoals.map((goal) => ({ id: goal.id, title: goal.title, date: goal.targetDate as string, type: "Objetivo", projectId: goal.projectId })),
-  ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 7);
   const percent = activeHabits.length ? Math.round(todayLogs.filter((log) => activeHabits.some((habit) => habit.id === log.habitId)).length / activeHabits.length * 100) : 0;
   const weekDays = lastDays(today, 7);
   const weekMetrics = data.metrics.filter((metric) => weekDays.includes(metric.date));
-  const weekWeight = weekMetrics.find((metric) => metric.weight != null)?.weight;
   const weekMood = average(weekMetrics.map((metric) => metric.mood));
   const weekHabitLogs = data.habitLogs.filter((log) => log.done && weekDays.includes(log.date) && activeHabits.some((habit) => habit.id === log.habitId));
   const weekFocus = data.focusSessions.filter((session) => weekDays.includes(session.date)).reduce((sum, session) => sum + session.minutes, 0);
   const journalStreak = streakStats(data.journals.map((item) => item.date), today);
-  const checkinStreak = streakStats(data.metrics.map((item) => item.date), today);
-  const habitStreaks = activeHabits.map((habit) => ({ habit, ...streakStats(data.habitLogs.filter((log) => log.habitId === habit.id && log.done).map((log) => log.date), today) })).sort((a, b) => b.current - a.current || b.best - a.best);
+  const openToday = todayBullets.filter((item) => !item.done);
+  const nextScheduled = upcomingProjectTasks
+    .filter((task) => task.scheduledDate === today)
+    .sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99"));
+  const monthGoals = data.planGoals
+    .filter((goal) => goal.scope === "month" && goal.period === today.slice(0, 7))
+    .sort((a, b) => {
+      const aDone = goalCompletion(a, data.planTasks, data.projectTasks).complete ? 1 : 0;
+      const bDone = goalCompletion(b, data.planTasks, data.projectTasks).complete ? 1 : 0;
+      return aDone - bDone || (a.priority === "high" ? -1 : 1);
+    })
+    .slice(0, 5);
+
+  async function setTodayTaskStatus(task: ProjectTask, status: ProjectTask["status"]) {
+    if (task.status === status) return;
+    await onSave("projectTask", { ...task, status }, status === "done" ? "Tarea completada" : "Estado actualizado");
+  }
+
   return (
-    <div className="page-content today-page">
-      <section className="welcome-card">
-        <div className="welcome-copy">
-          <span className="section-label"><Sun size={15} /> REGISTRO DE HOY</span>
-          <h2>Haz que hoy cuente.</h2>
-          <p>Registra lo que haces, cómo te sientes y qué estás aprendiendo. Tus datos se guardan al momento.</p>
-          <div className="welcome-stats"><div><strong>{activeProjects.length}</strong><span>proyectos</span></div><div><strong>{todayBullets.filter((item) => !item.done).length}</strong><span>pendientes</span></div><div><strong>{percent}%</strong><span>hábitos</span></div></div>
+    <div className="page-content today-v3">
+      <section className="today-v3-header">
+        <div>
+          <span className="today-v3-kicker"><Sun size={14} /> {formatLongDate(today)}</span>
+          <h2>Tu día, en un solo lugar.</h2>
+          <p>Decidí qué importa, reservá tiempo para hacerlo y dejá el resto fuera del ruido.</p>
         </div>
-        <div className="orbit-wrap" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="planet"><Moon size={30} /></div><span className="tiny-star star-one">✦</span><span className="tiny-star star-two">·</span><span className="tiny-star star-three">✧</span></div>
+        <div className="today-v3-header-actions">
+          <button className="today-v3-action primary" onClick={() => onOpen({ kind: "bullet" })}><Plus size={16} /> Añadir al día</button>
+          <button className="today-v3-action" onClick={() => onNavigate("focus")}><Timer size={16} /> Empezar foco</button>
+        </div>
       </section>
-      <section className="card weekly-life-card">
-        <div className="card-heading"><div><span className="section-label dark"><Sparkles size={14} /> TU SEMANA EN LIFEOS</span><h3>Una mirada a los últimos 7 días</h3></div><small>{formatTinyDate(weekDays[0])} — {formatTinyDate(today)}</small></div>
-        <div className="weekly-life-grid"><div><Scale size={16} /><span>Peso</span><strong>{metricValue(weekWeight, "kg")}</strong></div><div><Heart size={16} /><span>Ánimo medio</span><strong>{weekMood == null ? missingValue : `${formatDecimal(weekMood)}/5`}</strong></div><div><CheckCircle2 size={16} /><span>Hábitos hechos</span><strong>{weekHabitLogs.length}</strong></div><div><Timer size={16} /><span>Tiempo de foco</span><strong>{formatMinutes(weekFocus)}</strong></div><div><PenLine size={16} /><span>Racha journal</span><strong>{journalStreak.current} días</strong></div></div>
-        <div className="dashboard-streaks"><span><Flame size={14} /> Mejor hábito actual: <strong>{habitStreaks[0]?.current ? `${habitStreaks[0].habit.name} · ${habitStreaks[0].current} días` : missingValue}</strong></span><span><BookOpen size={14} /> Journal: <strong>{journalStreak.current} actual · {journalStreak.best} mejor</strong></span><span><BarChart3 size={14} /> Check-in: <strong>{checkinStreak.current} actual · {checkinStreak.best} mejor</strong></span></div>
+
+      <section className="today-v3-pulse" aria-label="Resumen del día">
+        <div><span>Pendientes</span><strong>{openToday.length}</strong><small>para hoy</small></div>
+        <div><span>Hábitos</span><strong>{percent}%</strong><small>{todayLogs.length}/{activeHabits.length} completos</small></div>
+        <div><span>Enfoque</span><strong>{formatMinutes(focusToday)}</strong><small>trabajado hoy</small></div>
+        <div><span>Ánimo</span><strong>{todayMetric?.mood == null ? missingValue : `${todayMetric.mood}/5`}</strong><small>{todayMetric ? "check-in hecho" : "sin registrar"}</small></div>
       </section>
-      <div className="dashboard-grid">
-        <div className="left-column">
-          <section className="card">
-            <div className="card-heading"><div><span className="section-label dark"><Flame size={14} /> RITUALES</span><h3>Hábitos de hoy</h3></div><button className="text-button" onClick={() => onNavigate("habits")}>Gestionar <ArrowRight size={15} /></button></div>
-            <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
-            {activeHabits.length ? <div className="habit-grid">{activeHabits.slice(0, 6).map((habit) => {
-              const done = todayLogs.some((log) => log.habitId === habit.id);
-              return <button key={habit.id} className={`habit ${habit.color} ${done ? "completed" : ""}`} onClick={() => onToggleHabit(habit)}><span className="habit-icon">{habitCategoryIcon(habit.category, 18)}</span><span><strong>{habit.name}</strong><small>{habit.detail || habit.category}</small></span><span className="habit-check">{done && <Check size={14} />}</span></button>;
-            })}</div> : <EmptyState text="Aún no tienes hábitos. Crea el primero para empezar." action="Crear hábito" onClick={() => onOpen({ kind: "habit" })} />}
+
+      <div className="today-v3-layout">
+        <main className="today-v3-main">
+          <section className="today-v3-agenda">
+            <header className="today-v3-section-head">
+              <div><span>PLAN DEL DÍA</span><h3>Qué vas a hacer hoy</h3></div>
+              <button onClick={() => onOpen({ kind: "bullet" })}><Plus size={15}/> Añadir</button>
+            </header>
+
+            <div className="today-v3-agenda-list">
+              {nextScheduled.map((task) => <article className="today-v3-agenda-row scheduled" key={task.id}>
+                <span className="today-v3-time">{task.scheduledTime || "Plan"}</span>
+                <button className="today-v3-row-copy today-v3-row-open" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, record:task })}><strong>{task.title}</strong><small>{task.itemType === "event" ? "Evento" : task.itemType === "reminder" ? "Recordatorio" : "Tarea planificada"}</small></button>
+                {isAction(task) ? <div className="task-status-inline compact" aria-label={`Estado de ${task.title}`}>
+                  <button className={task.status==="todo"?"active":""} onClick={() => setTodayTaskStatus(task,"todo")} title="Por hacer"><Circle size={12}/></button>
+                  <button className={task.status==="doing"?"active":""} onClick={() => setTodayTaskStatus(task,"doing")} title="En curso"><Activity size={12}/></button>
+                  <button className={task.status==="done"?"active":""} onClick={() => setTodayTaskStatus(task,"done")} title="Hecha"><Check size={12}/></button>
+                </div> : <ArrowRight size={16}/>}
+              </article>)}
+              {todayBullets.slice(0, 7).map((item) => <button className={`today-v3-agenda-row ${item.done ? "done" : ""}`} key={item.id} onClick={() => onToggleBullet(item)}>
+                <span className="today-v3-check">{item.done ? <Check size={14}/> : <Circle size={15}/>}</span>
+                <span className="today-v3-row-copy"><strong>{item.text}</strong><small>{item.type || "Tarea personal"}</small></span>
+                <span className="today-v3-row-status">{item.done ? "Hecho" : "Pendiente"}</span>
+              </button>)}
+              {!nextScheduled.length && !todayBullets.length && <div className="today-v3-empty"><span>Tu día está despejado.</span><p>Añadí solo lo que realmente querés completar hoy.</p><button onClick={() => onOpen({ kind: "bullet" })}><Plus size={15}/> Crear primera tarea</button></div>}
+            </div>
           </section>
-          <section className="card">
-            <div className="card-heading"><div><span className="section-label dark"><ListTodo size={14} /> BULLET LIST</span><h3>Lo importante de hoy</h3></div><button className="add-inline top" onClick={() => onOpen({ kind: "bullet" })}><Plus size={15} /> Añadir</button></div>
-            <div className="task-list">{todayBullets.slice(0, 6).map((item, index) => <button className={`task ${item.done ? "task-done" : ""}`} key={item.id} onClick={() => onToggleBullet(item)}><span className="task-number">{item.done ? <Check size={15} /> : `0${index + 1}`}</span><span>{item.text}</span>{item.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button>)}</div>
-            {!todayBullets.length && <EmptyState text="Tu lista está vacía. Añade una tarea, nota o evento." />}
+
+          <section className="today-v3-month-goals">
+            <header className="today-v3-section-head">
+              <div><span>OBJETIVOS DEL MES</span><h3>El camino de {monthLabel(today.slice(0,7))}</h3></div>
+              <button onClick={() => onNavigate("projects")}>Ver planificación <ArrowRight size={14}/></button>
+            </header>
+            <div className="today-v3-goals-list">
+              {monthGoals.map((goal) => {
+                const completion = goalCompletion(goal, data.planTasks, data.projectTasks);
+                const project = data.projects.find((item) => item.id === goal.projectId);
+                return <button key={goal.id} className={completion.complete ? "done" : ""} onClick={() => onOpen({ kind:"planGoal", projects:data.projects, record:goal })}>
+                  <div className="today-v3-goal-top"><span>{project?.title || "Objetivo personal"}</span><strong>{completion.progress == null ? "—" : `${completion.progress}%`}</strong></div>
+                  <h4>{goal.title}</h4>
+                  <div className="today-v3-goal-track"><i style={{ width: `${completion.progress ?? 0}%` }}/></div>
+                  <small>{completion.complete ? "Completado" : goal.targetDate ? `Fecha objetivo · ${formatShortDate(goal.targetDate)}` : "En progreso"}</small>
+                </button>;
+              })}
+              {!monthGoals.length && <div className="today-v3-goals-empty"><Target size={20}/><div><strong>Todavía no definiste objetivos para este mes.</strong><small>Marcá la dirección antes de llenar la agenda.</small></div><button onClick={() => onOpen({ kind:"planGoal", projects:data.projects, defaultScope:"month", defaultPeriod:today.slice(0,7) })}>Crear objetivo</button></div>}
+            </div>
           </section>
-          <section className="card upcoming-plan-card">
-            <div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14} /> ESTA SEMANA</span><h3>Lo que tienes por delante</h3></div><button className="text-button" onClick={() => onNavigate("projects")}>Abrir planner <ArrowRight size={15} /></button></div>
-            <div className="dashboard-week-agenda">{weekTimelineDays.map((date) => { const items = upcomingProjectTasks.filter((task) => taskOccursOnDate(task, date)).sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || a.title.localeCompare(b.title, "es")); return <section className={`dashboard-week-day ${date === today ? "today" : ""}`} key={date}><header><strong>{date === today ? "HOY" : shortDay(date)}</strong><small>{new Date(`${date}T12:00:00Z`).getUTCDate()}</small></header><div>{items.slice(0, 4).map((task) => <button className={`dashboard-week-item ${task.itemType || "task"}`} key={task.id} onClick={() => onNavigate("projects")}><b>{task.scheduledTime || (task.itemType === "event" ? "Evento" : task.itemType === "reminder" ? "Recordatorio" : "Tarea")}</b><span>{task.title}</span></button>)}{items.length > 4 && <small className="dashboard-week-more">+{items.length - 4} más</small>}{!items.length && <small className="dashboard-week-empty">—</small>}</div></section>; })}</div>
-            {!upcomingProjectTasks.length && <EmptyState text="No tienes tareas, eventos ni recordatorios programados para los próximos 7 días." action="Abrir planner" onClick={() => onNavigate("projects")} />}
+          <section className="today-v3-focus">
+            <div className="today-v3-focus-copy">
+              <span>ESPACIO DE ENFOQUE</span>
+              <h3>Una cosa a la vez.</h3>
+              <p>Entrá en modo foco cuando tengas claro qué querés mover hoy.</p>
+              <button onClick={() => onNavigate("focus")}><Play size={16}/> Abrir temporizador</button>
+            </div>
+            <div className="today-v3-focus-number"><strong>{formatMinutes(focusToday)}</strong><span>hoy</span><small>{data.focusSessions.filter((session) => session.date === today).length} sesiones</small></div>
           </section>
-        </div>
-        <div className="right-column">
-          <section className="card focus-preview-card">
-            <div className="card-heading"><div><span className="section-label dark"><Timer size={14} /> ENFOQUE</span><h3>Trabajo de hoy</h3></div><button className="icon-button small" onClick={() => onNavigate("focus")}><ArrowRight size={17} /></button></div>
-            <button className="focus-preview-main" onClick={() => onNavigate("focus")}><span><Timer size={22} /></span><div><strong>{formatMinutes(focusToday)}</strong><small>{data.focusSessions.filter((session) => session.date === today).length} sesiones registradas</small></div><Play size={18} /></button>
+
+          <section className="today-v3-week">
+            <header className="today-v3-section-head">
+              <div><span>PRÓXIMOS 7 DÍAS</span><h3>Tu semana sin sobrecarga</h3></div>
+              <button onClick={() => onNavigate("projects")}>Abrir planificación <ArrowRight size={14}/></button>
+            </header>
+            <div className="today-v3-week-grid">
+              {weekTimelineDays.map((date) => {
+                const items = upcomingProjectTasks.filter((task) => taskOccursOnDate(task, date));
+                return <button className={`today-v3-day ${date === today ? "is-today" : ""}`} key={date} onClick={() => onNavigate("projects")}>
+                  <span>{date === today ? "HOY" : shortDay(date)}</span>
+                  <strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong>
+                  <small>{items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "Libre"}</small>
+                </button>;
+              })}
+            </div>
           </section>
-          <section className="card checkin-card">
-            <div className="card-heading compact"><div><span className="section-label dark"><Heart size={14} /> CHECK-IN</span><h3>¿Cómo estás?</h3></div><button className="icon-button small" onClick={() => onOpen({ kind: "metric", record: todayMetric })}><Edit3 size={15} /></button></div>
-            {todayMetric ? <>
-              <div className="mood-display"><span>{moodEmoji(todayMetric.mood) || missingValue}</span><div><strong>{todayMetric.mood == null ? `Ánimo ${missingValue}` : `Ánimo ${todayMetric.mood}/5`}</strong><small>{todayMetric.energy == null ? `Energía ${missingValue}` : `Energía ${todayMetric.energy}/10`} · {todayMetric.stress == null ? `Estrés ${missingValue}` : `Estrés ${todayMetric.stress}/10`}</small></div></div>
-              <div className="metric-row"><div className="metric-icon"><Scale size={18} /></div><div><span>Peso actual</span><strong>{metricValue(todayMetric.weight, "kg")}</strong></div><span className="metric-change">{todayMetric.sleepHours == null ? missingValue : `${formatNumber(todayMetric.sleepHours)} h sueño`}</span></div>
-            </> : <EmptyState text="Todavía no has registrado tus métricas de hoy." action="Registrar ahora" onClick={() => onOpen({ kind: "metric" })} />}
+        </main>
+
+        <aside className="today-v3-side">
+          <section className="today-v3-panel today-v3-habits">
+            <header><div><span>RITUALES</span><h3>Hábitos de hoy</h3></div><strong>{percent}%</strong></header>
+            <div className="today-v3-habit-progress"><i style={{ width: `${percent}%` }}/></div>
+            <div className="today-v3-habit-list">
+              {activeHabits.slice(0, 6).map((habit) => {
+                const done = todayLogs.some((log) => log.habitId === habit.id);
+                return <button key={habit.id} className={done ? "done" : ""} onClick={() => onToggleHabit(habit)}>
+                  <span>{habitCategoryIcon(habit.category, 17)}</span><div><strong>{habit.name}</strong><small>{habit.detail || habit.category}</small></div><i>{done ? <Check size={13}/> : null}</i>
+                </button>;
+              })}
+            </div>
+            <button className="today-v3-link" onClick={() => onNavigate("habits")}>Gestionar hábitos <ArrowRight size={14}/></button>
           </section>
-          <section className="card project-preview-card">
-            <div className="card-heading"><div><span className="section-label dark"><FolderKanban size={14} /> PROYECTOS</span><h3>En marcha</h3></div><button className="icon-button small" onClick={() => onNavigate("projects")}><ArrowRight size={17} /></button></div>
-            {activeProjects.slice(0, 3).map((project) => {
-              const tasks = data.projectTasks.filter((task) => task.projectId === project.id);
-              const done = tasks.filter((task) => task.status === "done").length;
-              const progress = tasks.length ? Math.round(done / tasks.length * 100) : 0;
-              return <button className="project-preview-row" key={project.id} onClick={() => onNavigate("projects")}><span className={`module-icon ${project.color}`}><FolderKanban size={17} /></span><span><strong>{project.title}</strong><small>{done}/{tasks.length} tareas · {progress}%</small></span><ArrowRight size={15} /></button>;
-            })}
-            {!activeProjects.length && <EmptyState text="Crea un proyecto para organizar tus negocios e ideas." action="Nuevo proyecto" onClick={() => onOpen({ kind: "project" })} />}
+
+          <section className="today-v3-panel today-v3-checkin">
+            <header><div><span>CHECK-IN</span><h3>Cómo estás hoy</h3></div><button onClick={() => onOpen({ kind: "metric", record: todayMetric })}><Edit3 size={15}/></button></header>
+            {todayMetric ? <div className="today-v3-checkin-body">
+              <span className="today-v3-mood">{moodEmoji(todayMetric.mood) || "·"}</span>
+              <div><strong>{todayMetric.mood == null ? "Sin ánimo registrado" : `Ánimo ${todayMetric.mood}/5`}</strong><small>{todayMetric.energy == null ? "Energía —" : `Energía ${todayMetric.energy}/10`} · {todayMetric.stress == null ? "Estrés —" : `Estrés ${todayMetric.stress}/10`}</small></div>
+            </div> : <button className="today-v3-checkin-empty" onClick={() => onOpen({ kind: "metric" })}><Heart size={18}/><span><strong>Hacé tu check-in</strong><small>30 segundos para registrar cómo estás.</small></span><ArrowRight size={15}/></button>}
           </section>
-          <ActiveProgram data={data} today={today} onOpen={onOpen} onNavigate={onNavigate} />
-        </div>
+
+          <section className="today-v3-panel today-v3-projects">
+            <header><div><span>EN MARCHA</span><h3>Proyectos activos</h3></div><button onClick={() => onNavigate("projects")}><ArrowRight size={15}/></button></header>
+            <div>
+              {activeProjects.slice(0,3).map((project) => {
+                const tasks = data.projectTasks.filter((task) => task.projectId === project.id);
+                const done = tasks.filter((task) => task.status === "done").length;
+                const progress = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+                return <button key={project.id} onClick={() => onNavigate("projects")}><span className="today-v3-project-dot"/><div><strong>{project.title}</strong><small>{done}/{tasks.length} tareas</small></div><b>{progress}%</b></button>;
+              })}
+              {!activeProjects.length && <button onClick={() => onOpen({ kind:"project" })}><span className="today-v3-project-dot"/><div><strong>Crear un proyecto</strong><small>Organizá trabajo o ideas</small></div><Plus size={15}/></button>}
+            </div>
+          </section>
+
+          <section className="today-v3-weekly-note">
+            <span>ÚLTIMOS 7 DÍAS</span>
+            <div><strong>{weekHabitLogs.length}</strong><small>hábitos</small></div>
+            <div><strong>{formatMinutes(weekFocus)}</strong><small>foco</small></div>
+            <div><strong>{weekMood == null ? missingValue : formatDecimal(weekMood)}</strong><small>ánimo medio</small></div>
+            <div><strong>{journalStreak.current}</strong><small>racha journal</small></div>
+          </section>
+        </aside>
       </div>
     </div>
   );
@@ -1205,29 +1296,167 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
   onSave: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
   onDelete: (resource: Resource, id: string) => void;
 }) {
-  const [view, setView] = useState<"day" | "week" | "month" | "goals" | "projects" | "focus" | "inbox">("day");
+  const [view, setView] = useState<"priorities" | "week" | "projects" | "goals" | "inbox">("priorities");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(data.projects[0]?.id ?? null);
   const weekStart = startOfWeek(today);
   const weekEnd = addDays(weekStart, 6);
-  const monthStart = `${today.slice(0, 7)}-01`;
-  const monthEnd = addDays(`${shiftMonth(today.slice(0, 7), 1)}-01`, -1);
-  const dayTasks = data.projectTasks.filter((task) => isAction(task) && task.status !== "done" && task.scheduledDate === today).sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || compareProjectTasks(a, b));
-  const dayAgenda = data.projectTasks.filter((task) => !isAction(task) && task.scheduledDate === today).sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || a.title.localeCompare(b.title, "es"));
-  const unscheduled = data.projectTasks.filter((task) => isAction(task) && task.status !== "done" && !task.scheduledDate).sort(compareProjectTasks);
-  const monthTasks = data.projectTasks.filter((task) => isAction(task) && task.scheduledDate && task.scheduledDate <= monthEnd && taskEndDate(task) >= monthStart).sort((a,b) => a.scheduledDate!.localeCompare(b.scheduledDate!) || compareProjectTasks(a,b));
-  const monthAgenda = data.projectTasks.filter((task) => !isAction(task) && task.scheduledDate && task.scheduledDate <= monthEnd && taskEndDate(task) >= monthStart).sort((a,b) => a.scheduledDate!.localeCompare(b.scheduledDate!) || (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99") || a.title.localeCompare(b.title, "es"));
-  const weekTasks = data.projectTasks.filter((task) => isAction(task) && task.status !== "done" && task.scheduledDate && task.scheduledDate >= weekStart && task.scheduledDate <= weekEnd);
   const selectedProject = data.projects.find((item) => item.id === selectedProjectId) ?? data.projects[0] ?? null;
-  const nav = [{ id:"day" as const, label:"Día", icon:CalendarDays },{ id:"week" as const, label:"Semana", icon:LayoutDashboard },{ id:"month" as const, label:"Mes", icon:CalendarDays },{ id:"goals" as const, label:"Objetivos", icon:Target },{ id:"projects" as const, label:"Proyectos", icon:FolderKanban },{ id:"focus" as const, label:"Foco", icon:Timer },{ id:"inbox" as const, label:"Inbox", icon:ListTodo }];
-  const taskButton = (task: ProjectTask) => <button className={`planner-task-row ${task.itemType || "task"}`} key={task.id} onClick={() => onOpen({ kind:"projectTask", projects:data.projects, record:task })}><span className={`priority-dot ${task.itemType === "event" ? "high" : task.itemType === "reminder" ? "medium" : task.priority || "medium"}`} /><div><strong>{task.scheduledTime ? `${task.scheduledTime} · ` : ""}{task.title}</strong><small>{!isAction(task) && task.scheduledDate ? `${formatShortDate(task.scheduledDate)} · ` : ""}{itemTypeLabel(task)}{task.itemType === "task" || !task.itemType ? ` · ${data.projects.find((project) => project.id === task.projectId)?.title ?? "Sin proyecto"} · ${task.estimatedMinutes != null ? formatMinutes(task.estimatedMinutes) : "Sin estimación"}` : task.description ? ` · ${task.description}` : ""}</small></div>{isAction(task) ? <span className={`energy-tag ${task.energy || "medium"}`}><Zap size={10}/>{energyLabel(task.energy)}</span> : <span className="agenda-kind">{task.itemType === "event" ? "Evento" : "Recordatorio"}</span>}</button>;
-  return <div className="page-content subpage planner-product"><section className="planner-product-hero"><div><span className="section-label dark"><LayoutDashboard size={14}/> PLANNER</span><h2>Tu sistema para decidir<br/>y ejecutar con claridad.</h2><p>Una misma tarea se ve en tu día, tu semana, tu mes y el objetivo que ayuda a construir.</p></div><div className="planner-create-actions"><button className="primary-button" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, defaultDate:today, defaultSprintWeek:weekStart })}><Plus size={16}/> Añadir tarea</button><button className="outline-compact" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, defaultDate:today, defaultSprintWeek:weekStart, defaultItemType:"event" })}><CalendarDays size={15}/> Evento</button><button className="outline-compact" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, defaultDate:today, defaultSprintWeek:weekStart, defaultItemType:"reminder" })}><Bell size={15}/> Recordatorio</button></div></section><div className="planner-nav" role="tablist">{nav.map(({id,label,icon:Icon}) => <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}><Icon size={15}/>{label}{id === "inbox" && unscheduled.length > 0 && <b>{unscheduled.length}</b>}</button>)}</div>
-  {view === "day" && <section className="planner-day"><div className="planner-day-heading"><div><span className="section-label dark">HOY · {formatLongDate(today)}</span><h3>Tu foco tiene espacio.</h3></div><div className="planner-load"><strong>{formatMinutes(dayTasks.reduce((sum,item) => sum + (item.estimatedMinutes ?? 0),0))}</strong><small>de carga planificada</small></div></div><div className="planner-day-grid"><section className="card planner-unscheduled"><div className="card-heading"><div><span className="section-label dark"><ListTodo size={14}/> TAREAS</span><h3>Para hacer hoy</h3></div><button className="add-inline top" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}>+ Tarea</button></div>{dayTasks.map(taskButton)}{!dayTasks.length && <EmptyState text="No tienes tareas para hoy. Elige una del Inbox o crea una nueva." action="Planificar tarea" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}/>}</section><section className="card planner-timeline"><div className="card-heading"><div><span className="section-label dark"><CalendarDays size={14}/> AGENDA FIJA</span><h3>Eventos y recordatorios</h3></div><button className="add-inline top" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}>+ Añadir</button></div>{dayAgenda.map(taskButton)}{!dayAgenda.length && <p className="agenda-empty">No hay compromisos fijos. Añade un evento o recordatorio cuando no sea una tarea.</p>}</section></div><section className="planner-checkout"><div><span>CIERRE DEL DÍA</span><strong>Al terminar, revisa lo pendiente y decide: mañana, Inbox o eliminar.</strong></div><button onClick={() => setView("inbox")}>Abrir pendientes →</button></section></section>}
-  {view === "week" && <SprintWorkspace data={data} today={today} defaultProject={selectedProject} onOpen={onOpen} onSave={onSave} onDelete={(id) => onDelete("projectTask", id)} />}
-  {view === "month" && <section className="planner-month"><div className="planner-month-header"><div><span className="section-label dark"><CalendarDays size={14}/> MES · {monthLabel(today.slice(0,7))}</span><h3>Ritmo, carga y dirección.</h3></div><div><strong>{monthTasks.length + monthAgenda.length}</strong><small>{monthTasks.length} tareas · {monthAgenda.length} en agenda</small></div></div><div className="planner-month-layout"><section className="card planner-month-list"><div className="card-heading"><div><span className="section-label dark">CALENDARIO DE ACCIÓN</span><h3>Próximas tareas</h3></div></div>{monthTasks.slice(0,14).map(taskButton)}{!monthTasks.length && <EmptyState text="No hay tareas programadas este mes." action="Abrir semana" onClick={() => setView("week")}/>}<div className="month-agenda-divider"><span className="section-label dark"><CalendarDays size={13}/> AGENDA DEL MES</span><h3>Eventos y recordatorios</h3></div>{monthAgenda.slice(0,14).map(taskButton)}{!monthAgenda.length && <p className="agenda-empty">No hay eventos ni recordatorios programados este mes.</p>}</section><aside className="card planner-month-goals"><span className="section-label dark"><Target size={14}/> OBJETIVOS DEL MES</span>{data.planGoals.filter((goal) => goal.scope === "month" && goal.period === today.slice(0,7)).map((goal) => { const p = goalCompletion(goal,data.planTasks,data.projectTasks).progress; return <button key={goal.id} onClick={() => onOpen({kind:"planGoal",projects:data.projects,record:goal})}><strong>{goal.title}</strong><span>{p == null ? "Sin tareas asociadas" : `${p}% de avance`}</span><i><b style={{width:`${p ?? 0}%`}}/></i></button>; })}<button className="month-goal-add" onClick={() => onOpen({kind:"planGoal",projects:data.projects,defaultScope:"month",defaultPeriod:today.slice(0,7)})}>+ Definir objetivo mensual</button></aside></div></section>}
-  {view === "goals" && <PlanningView data={data} today={today} embedded onOpen={onOpen} onSave={onSave} onDelete={onDelete}/>} 
-  {view === "projects" && <section className="planner-projects"><div className="planner-section-top"><div><span className="section-label dark"><FolderKanban size={14}/> ÁREAS Y PROYECTOS</span><h3>El contexto detrás de tus tareas.</h3></div><button className="primary-button" onClick={() => onOpen({kind:"project"})}><Plus size={15}/> Nuevo proyecto</button></div><div className="planner-project-grid">{data.projects.map((project) => {const tasks=data.projectTasks.filter((task)=>task.projectId===project.id);const done=tasks.filter((task)=>task.status==="done").length;const progress=tasks.length?Math.round(done/tasks.length*100):0;return <button key={project.id} className={`planner-project-card ${selectedProjectId===project.id?"selected":""}`} onClick={()=>setSelectedProjectId(project.id)}><span className={`module-icon ${project.color}`}><FolderKanban size={18}/></span><small>{project.area} · {projectStatus(project.status)}</small><strong>{project.title}</strong><p>{done}/{tasks.length} tareas completadas</p><i><b style={{width:`${progress}%`}}/></i><em>{progress}%</em></button>; })}<button className="planner-new-project" onClick={() => onOpen({kind:"project"})}>＋<strong>Crear proyecto</strong><small>Conecta trabajo, salud, finanzas o aprendizaje</small></button></div>{selectedProject && <section className="card planner-project-detail"><div><span className="section-label dark">PROYECTO SELECCIONADO</span><h3>{selectedProject.title}</h3><p>{selectedProject.description || "Añade un resultado esperado para dar contexto a este proyecto."}</p></div><div>{data.projectTasks.filter((task)=>task.projectId===selectedProject.id && task.status!=="done").slice(0,4).map(taskButton)}<button className="add-inline" onClick={() => onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,defaultDate:today})}>+ Añadir tarea al proyecto</button></div></section>}</section>}
-  {view === "focus" && <section className="planner-focus"><div className="planner-section-top"><div><span className="section-label dark"><Timer size={14}/> FOCO Y ENERGÍA</span><h3>Entiende dónde se va tu semana.</h3></div></div><div className="planner-focus-grid"><section className="card"><span className="section-label dark">CARGA SEMANAL</span><h3>{formatMinutes(weekTasks.reduce((sum,item)=>sum+(item.estimatedMinutes??0),0))}</h3><p>planificados entre {weekTasks.length} tareas pendientes.</p><div className="area-bars">{data.projects.slice(0,5).map(project=>{const minutes=weekTasks.filter(task=>task.projectId===project.id).reduce((sum,item)=>sum+(item.estimatedMinutes??0),0);return <div key={project.id}><span>{project.title}</span><i><b style={{width:`${Math.min(100,minutes/360*100)}%`}}/></i><small>{formatMinutes(minutes)}</small></div>; })}</div></section><section className="card"><span className="section-label dark">ENERGÍA REQUERIDA</span><h3>Distribución del foco</h3>{(["high","medium","low"] as const).map(level=>{const tasks=weekTasks.filter(task=>task.energy===level);return <div className="energy-summary" key={level}><span className={level}>{level==="high"?"⚡⚡⚡":level==="medium"?"⚡⚡":"⚡"}</span><div><strong>{energyLabel(level)}</strong><small>{tasks.length} tareas · {formatMinutes(tasks.reduce((sum,item)=>sum+(item.estimatedMinutes??0),0))}</small></div></div>; })}</section></div></section>}
-  {view === "inbox" && <section className="planner-inbox"><div className="planner-section-top"><div><span className="section-label dark"><ListTodo size={14}/> INBOX</span><h3>Captura primero. Decide después.</h3><p>Todo lo que aún no tiene fecha vive aquí, sin perderse entre notas o tareas.</p></div><button className="primary-button" onClick={() => onOpen({kind:"projectTask",projects:data.projects})}><Plus size={15}/> Capturar tarea</button></div><section className="card planner-inbox-list">{unscheduled.map(taskButton)}{!unscheduled.length && <EmptyState text="Inbox vacío. Tus próximas ideas aparecerán aquí hasta que las programes." action="Capturar tarea" onClick={() => onOpen({kind:"projectTask",projects:data.projects})}/>}</section></section>}
+  const openTasks = data.projectTasks.filter((task) => isAction(task) && task.status !== "done");
+  const weekTasks = openTasks.filter((task) => {
+    const date = task.scheduledDate || task.dueDate;
+    return !!date && date >= weekStart && date <= weekEnd;
+  }).sort(compareProjectTasks);
+  const unscheduled = openTasks.filter((task) => !task.scheduledDate && !task.dueDate).sort(compareProjectTasks);
+  const critical = openTasks.filter((task) => task.importance === "high" && task.urgency === "high").sort(compareProjectTasks);
+  const important = openTasks.filter((task) => task.importance === "high" && task.urgency !== "high").sort(compareProjectTasks);
+  const urgent = openTasks.filter((task) => task.urgency === "high" && task.importance !== "high").sort(compareProjectTasks);
+  const lowPressure = openTasks.filter((task) => task.importance !== "high" && task.urgency !== "high").sort(compareProjectTasks);
+  const weeklyTop = [...weekTasks].sort(compareProjectTasks).slice(0, 6);
+  const nav = [
+    { id:"priorities" as const, label:"Prioridades", icon:Target },
+    { id:"week" as const, label:"Semana", icon:CalendarDays },
+    { id:"projects" as const, label:"Roadmap", icon:FolderKanban },
+    { id:"goals" as const, label:"Objetivos", icon:Star },
+    { id:"inbox" as const, label:"Inbox", icon:ListTodo },
+  ];
+
+  async function advanceTask(task: ProjectTask) {
+    const status: ProjectTask["status"] = task.status === "todo" ? "doing" : task.status === "doing" ? "done" : "todo";
+    await onSave("projectTask", { ...task, status }, status === "done" ? "Tarea completada" : "Estado actualizado");
+  }
+
+  const taskRow = (task: ProjectTask, showProject = true) => {
+    const project = data.projects.find((item) => item.id === task.projectId);
+    return <article className={`planner-v4-task ${task.status} ${task.milestone ? "milestone" : ""}`} key={task.id}>
+      <div className="task-status-inline" aria-label={`Estado de ${task.title}`}>
+        <button className={task.status==="todo"?"active":""} onClick={() => onSave("projectTask",{...task,status:"todo"},"Estado actualizado")} title="Por hacer"><Circle size={12}/><span>Por hacer</span></button>
+        <button className={task.status==="doing"?"active":""} onClick={() => onSave("projectTask",{...task,status:"doing"},"Tarea en curso")} title="En curso"><Activity size={12}/><span>En curso</span></button>
+        <button className={task.status==="done"?"active":""} onClick={() => onSave("projectTask",{...task,status:"done"},"Tarea completada")} title="Hecha"><Check size={12}/><span>Hecha</span></button>
+      </div>
+      <button className="planner-v4-task-main" onClick={() => onOpen({kind:"projectTask",projects:data.projects,record:task})}>
+        <div className="planner-v4-task-title"><strong>{task.title}</strong>{task.milestone && <span className="milestone-chip"><Star size={10}/> Hito</span>}</div>
+        <small>{showProject ? `${project?.title ?? "Sin proyecto"} · ` : ""}{task.dueDate ? `vence ${formatShortDate(task.dueDate)}` : task.scheduledDate ? formatShortDate(task.scheduledDate) : "Sin fecha"}{task.estimatedMinutes ? ` · ${formatMinutes(task.estimatedMinutes)}` : ""}</small>
+      </button>
+      <div className="planner-v4-levels">
+        <span className={`importance ${task.importance || "medium"}`}>I · {taskLevelLabel(task.importance)}</span>
+        <span className={`urgency ${task.urgency || "medium"}`}>U · {taskLevelLabel(task.urgency)}</span>
+      </div>
+    </article>;
+  };
+
+  return <div className="page-content subpage planner-v4">
+    <section className="planner-v4-hero">
+      <div>
+        <span className="section-label dark"><Target size={14}/> PLANIFICACIÓN</span>
+        <h2>Ordená lo importante.<br/>Después ejecutá.</h2>
+        <p>Clasificá cada tarea por importancia y urgencia, concentrá la semana en lo que realmente mueve tus proyectos y seguí cada roadmap de principio a fin.</p>
+      </div>
+      <div className="planner-v4-create">
+        <button className="primary-button" onClick={() => onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}><Plus size={16}/> Nueva tarea</button>
+        <button className="outline-compact" onClick={() => onOpen({kind:"project"})}><FolderKanban size={15}/> Nuevo proyecto</button>
+      </div>
+    </section>
+
+    <nav className="planner-v4-tabs" aria-label="Vistas de planificación">
+      {nav.map(({id,label,icon:Icon}) => <button key={id} className={view===id?"active":""} onClick={()=>setView(id)}><Icon size={15}/><span>{label}</span>{id==="inbox"&&unscheduled.length>0&&<b>{unscheduled.length}</b>}</button>)}
+    </nav>
+
+    {view==="priorities" && <div className="planner-v4-priorities">
+      <section className="planner-v4-week-focus">
+        <header><div><span>FOCO DE LA SEMANA</span><h3>Lo que más merece tu atención</h3><p>Ordenado automáticamente combinando importancia, urgencia y fecha.</p></div><strong>{weekTasks.length}</strong></header>
+        <div className="planner-v4-top-list">{weeklyTop.map(task=>taskRow(task))}{!weeklyTop.length&&<EmptyState text="No hay tareas con fecha para esta semana." action="Planificar tarea" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}/>}</div>
+      </section>
+
+      <section className="planner-v4-matrix">
+        <article className="planner-v4-quadrant critical">
+          <header><span><Flame size={15}/> IMPORTANTE + URGENTE</span><strong>{critical.length}</strong></header>
+          <h3>Hacer primero</h3><p>Tareas que requieren acción inmediata y tienen impacto alto.</p>
+          <div>{critical.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+        <article className="planner-v4-quadrant strategic">
+          <header><span><Target size={15}/> IMPORTANTE</span><strong>{important.length}</strong></header>
+          <h3>Planificar y proteger</h3><p>Trabajo relevante que conviene reservar antes de que se vuelva urgente.</p>
+          <div>{important.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+        <article className="planner-v4-quadrant urgent">
+          <header><span><Zap size={15}/> URGENTE</span><strong>{urgent.length}</strong></header>
+          <h3>Resolver con criterio</h3><p>Necesita rapidez, pero no debería desplazar el trabajo de mayor impacto.</p>
+          <div>{urgent.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+        <article className="planner-v4-quadrant low">
+          <header><span><Circle size={15}/> BAJA PRESIÓN</span><strong>{lowPressure.length}</strong></header>
+          <h3>Agrupar o posponer</h3><p>Acciones de menor impacto y menor urgencia para huecos específicos.</p>
+          <div>{lowPressure.slice(0,5).map(task=>taskRow(task,false))}</div>
+        </article>
+      </section>
+    </div>}
+
+    {view==="week" && <section className="planner-v4-week">
+      <div className="planner-v4-section-heading"><div><span className="section-label dark"><CalendarDays size={14}/> SEMANA ACTUAL</span><h3>{formatShortDate(weekStart)} — {formatShortDate(weekEnd)}</h3><p>Distribuí la carga sin perder de vista qué tareas son realmente prioritarias.</p></div><button className="primary-button" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,defaultDate:today,defaultSprintWeek:weekStart})}><Plus size={15}/> Añadir tarea</button></div>
+      <div className="planner-v4-week-days">{Array.from({length:7},(_,i)=>addDays(weekStart,i)).map(date=>{
+        const tasks=weekTasks.filter(task=>(task.scheduledDate||task.dueDate)===date).sort(compareProjectTasks);
+        return <section className={`planner-v4-day ${date===today?"today":""}`} key={date}><header><span>{date===today?"HOY":shortDay(date)}</span><strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong><small>{tasks.length} tareas</small></header><div>{tasks.map(task=>taskRow(task,false))}</div></section>;
+      })}</div>
+    </section>}
+
+    {view==="projects" && <section className="planner-v4-roadmap">
+      <div className="planner-v4-section-heading"><div><span className="section-label dark"><FolderKanban size={14}/> PROYECTOS Y ROADMAP</span><h3>Seguimiento de punta a punta</h3><p>Seleccioná un proyecto para ver hitos, trabajo pendiente y todo lo que ya se completó.</p></div><button className="primary-button" onClick={()=>onOpen({kind:"project"})}><Plus size={15}/> Nuevo proyecto</button></div>
+      <div className="planner-v4-roadmap-layout">
+        <aside className="planner-v4-project-list">
+          {data.projects.map(project=>{
+            const tasks=data.projectTasks.filter(task=>task.projectId===project.id&&isAction(task));
+            const done=tasks.filter(task=>task.status==="done").length;
+            const progress=tasks.length?Math.round(done/tasks.length*100):0;
+            return <button key={project.id} className={selectedProject?.id===project.id?"active":""} onClick={()=>setSelectedProjectId(project.id)}>
+              <span className="planner-v4-project-dot"/>
+              <div><small>{project.area} · {projectStatus(project.status)}</small><strong>{project.title}</strong><i><b style={{width:`${progress}%`}}/></i></div>
+              <em>{progress}%</em>
+            </button>;
+          })}
+          <button className="planner-v4-new-project" onClick={()=>onOpen({kind:"project"})}><Plus size={16}/> Crear proyecto</button>
+        </aside>
+
+        {selectedProject ? <div className="planner-v4-roadmap-main">
+          <header className="planner-v4-project-header">
+            <div><span>{selectedProject.area.toUpperCase()}</span><h3>{selectedProject.title}</h3><p>{selectedProject.description||"Añadí una descripción para definir el resultado esperado de este proyecto."}</p></div>
+            <div><button className="outline-compact" onClick={()=>onOpen({kind:"project",record:selectedProject})}><Edit3 size={14}/> Editar</button><button className="primary-button" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,defaultDate:today})}><Plus size={14}/> Añadir tarea</button></div>
+          </header>
+          {(()=>{
+            const tasks=data.projectTasks.filter(task=>task.projectId===selectedProject.id&&isAction(task));
+            const roadmap=[...tasks].sort((a,b)=>(a.scheduledDate||a.dueDate||a.completedAt||"9999-12-31").localeCompare(b.scheduledDate||b.dueDate||b.completedAt||"9999-12-31")||compareProjectTasks(a,b));
+            const done=tasks.filter(task=>task.status==="done");
+            const pending=tasks.filter(task=>task.status!=="done");
+            const milestones=tasks.filter(task=>task.milestone);
+            const progress=tasks.length?Math.round(done.length/tasks.length*100):0;
+            return <>
+              <div className="planner-v4-project-stats"><div><span>PROGRESO</span><strong>{progress}%</strong><small>{done.length}/{tasks.length} completadas</small></div><div><span>HITOS</span><strong>{milestones.length}</strong><small>{milestones.filter(task=>task.status==="done").length} alcanzados</small></div><div><span>PENDIENTES</span><strong>{pending.length}</strong><small>{pending.filter(task=>task.importance==="high").length} de alta importancia</small></div></div>
+              <section className="planner-v4-timeline">
+                <div className="planner-v4-timeline-line"/>
+                {roadmap.map(task=><article className={`planner-v4-roadmap-item ${task.status} ${task.milestone?"milestone":""}`} key={task.id}>
+                  <span className="planner-v4-roadmap-node">{task.status==="done"?<Check size={13}/>:task.milestone?<Star size={13}/>:<Circle size={11}/>}</span>
+                  <div className="planner-v4-roadmap-content">
+                    <header><div><small>{task.status==="done"?"COMPLETADO":task.status==="doing"?"EN CURSO":"PRÓXIMO"} {task.milestone?"· HITO":""}</small><strong>{task.title}</strong></div><div className="planner-v4-levels"><span className={`importance ${task.importance||"medium"}`}>I · {taskLevelLabel(task.importance)}</span><span className={`urgency ${task.urgency||"medium"}`}>U · {taskLevelLabel(task.urgency)}</span></div></header>
+                    <p>{task.description||"Sin detalle adicional."}</p>
+                    <footer><span><CalendarDays size={12}/>{task.dueDate?formatShortDate(task.dueDate):task.scheduledDate?formatShortDate(task.scheduledDate):"Sin fecha"}</span>{task.estimatedMinutes&&<span><Timer size={12}/>{formatMinutes(task.estimatedMinutes)}</span>}<div className="task-status-inline compact">
+                      <button className={task.status==="todo"?"active":""} onClick={()=>onSave("projectTask",{...task,status:"todo"},"Estado actualizado")} title="Por hacer"><Circle size={11}/></button>
+                      <button className={task.status==="doing"?"active":""} onClick={()=>onSave("projectTask",{...task,status:"doing"},"Tarea en curso")} title="En curso"><Activity size={11}/></button>
+                      <button className={task.status==="done"?"active":""} onClick={()=>onSave("projectTask",{...task,status:"done"},"Tarea completada")} title="Hecha"><Check size={11}/></button>
+                    </div><button onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,record:task})}>Editar</button></footer>
+                  </div>
+                </article>)}
+                {!roadmap.length&&<EmptyState text="Este proyecto todavía no tiene tareas ni hitos." action="Añadir primera tarea" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,defaultDate:today})}/>}
+              </section>
+            </>;
+          })()}
+        </div> : <div className="planner-v4-roadmap-main"><EmptyState text="Creá o seleccioná un proyecto para construir su roadmap."/></div>}
+      </div>
+    </section>}
+
+    {view==="goals" && <PlanningView data={data} today={today} embedded onOpen={onOpen} onSave={onSave} onDelete={onDelete}/>}
+    {view==="inbox" && <section className="planner-v4-inbox">
+      <div className="planner-v4-section-heading"><div><span className="section-label dark"><ListTodo size={14}/> INBOX</span><h3>Capturá primero, clasificá después.</h3><p>Las tareas sin fecha quedan acá hasta que decidas importancia, urgencia y cuándo hacerlas.</p></div><button className="primary-button" onClick={()=>onOpen({kind:"projectTask",projects:data.projects})}><Plus size={15}/> Capturar tarea</button></div>
+      <div className="planner-v4-inbox-list">{unscheduled.map(task=>taskRow(task))}{!unscheduled.length&&<EmptyState text="Inbox vacío. No hay tareas sin clasificar." action="Crear tarea" onClick={()=>onOpen({kind:"projectTask",projects:data.projects})}/>}</div>
+    </section>}
   </div>;
 }
 
@@ -1447,7 +1676,7 @@ function ProjectForm({ record, today, busy, onSubmit }: { record?: Project; toda
 
 function ProjectTaskForm({ projects, goals, project, record, defaultDate, defaultSprintWeek, defaultItemType, busy, onSubmit }: { projects: Project[]; goals: PlanGoal[]; project?: Project; record?: ProjectTask; defaultDate?: string; defaultSprintWeek?: string; defaultItemType?: ProjectTask["itemType"]; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
   const initialDate = record?.scheduledDate ?? defaultDate ?? "";
-  const [form, setForm] = useState({ id: record?.id, itemType: record?.itemType ?? defaultItemType ?? "task" as ProjectTask["itemType"], projectId: record?.projectId ?? project?.id ?? projects[0]?.id ?? "", goalId: record?.goalId ?? "", title: record?.title ?? "", description: record?.description ?? "", status: record?.status ?? "todo", priority: record?.priority ?? "medium", energy: record?.energy ?? "medium", estimatedMinutes: record?.estimatedMinutes ?? "", scheduledDate: initialDate, scheduledTime: record?.scheduledTime ?? "", endDate: record?.endDate ?? initialDate, sprintWeek: record?.sprintWeek ?? (initialDate ? startOfWeek(initialDate) : defaultSprintWeek ?? ""), dueDate: record?.dueDate ?? "" });
+  const [form, setForm] = useState({ id: record?.id, itemType: record?.itemType ?? defaultItemType ?? "task" as ProjectTask["itemType"], projectId: record?.projectId ?? project?.id ?? projects[0]?.id ?? "", goalId: record?.goalId ?? "", title: record?.title ?? "", description: record?.description ?? "", status: record?.status ?? "todo", priority: record?.priority ?? "medium", importance: record?.importance ?? "medium", urgency: record?.urgency ?? "medium", milestone: record?.milestone ?? false, energy: record?.energy ?? "medium", estimatedMinutes: record?.estimatedMinutes ?? "", scheduledDate: initialDate, scheduledTime: record?.scheduledTime ?? "", endDate: record?.endDate ?? initialDate, sprintWeek: record?.sprintWeek ?? (initialDate ? startOfWeek(initialDate) : defaultSprintWeek ?? ""), dueDate: record?.dueDate ?? "" });
   function schedule(date: string) { setForm({ ...form, scheduledDate: date, endDate: !form.endDate || form.endDate < date ? date : form.endDate, sprintWeek: date ? startOfWeek(date) : form.sprintWeek }); }
   function selectGoal(goalId: string) { const selected = goals.find((goal) => goal.id === goalId); setForm({ ...form, goalId, projectId: selected?.projectId ?? form.projectId }); }
   const isTask = form.itemType === "task";
@@ -1460,7 +1689,7 @@ function ProjectTaskForm({ projects, goals, project, record, defaultDate, defaul
     <div className="form-grid">
       <label>Área / proyecto<select required={isTask} value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Sin proyecto</option>{projects.map((item) => <option key={item.id} value={item.id}>{item.area} · {item.title}</option>)}</select></label>
       {isTask && <label>Objetivo que impulsa (opcional)<select value={form.goalId} onChange={(event) => selectGoal(event.target.value)}><option value="">Sin objetivo vinculado</option>{goals.filter((goal) => goal.status !== "done").map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></label>}
-      {isTask && <><label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProjectTask["status"] })}><option value="todo">Por hacer</option><option value="doing">En curso</option><option value="done">Hecha</option></select></label><label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta · destacar en agenda</option></select></label><label>Energía necesaria<select value={form.energy} onChange={(event) => setForm({ ...form, energy: event.target.value as ProjectTask["energy"] })}><option value="low">⚡ Baja</option><option value="medium">⚡⚡ Media</option><option value="high">⚡⚡⚡ Alta</option></select></label><label>Tiempo estimado (min)<input required type="number" min="5" max="1440" step="5" value={form.estimatedMinutes} onChange={(event) => setForm({ ...form, estimatedMinutes: event.target.value })} placeholder="Ej. 45" /></label></>}
+      {isTask && <><label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProjectTask["status"] })}><option value="todo">Por hacer</option><option value="doing">En curso</option><option value="done">Hecha</option></select></label><label>Importancia<select value={form.importance} onChange={(event) => setForm({ ...form, importance: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta · tiene impacto</option></select></label><label>Urgencia<select value={form.urgency} onChange={(event) => setForm({ ...form, urgency: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta · requiere atención pronto</option></select></label><label>Energía necesaria<select value={form.energy} onChange={(event) => setForm({ ...form, energy: event.target.value as ProjectTask["energy"] })}><option value="low">⚡ Baja</option><option value="medium">⚡⚡ Media</option><option value="high">⚡⚡⚡ Alta</option></select></label><label>Tiempo estimado (min)<input required type="number" min="5" max="1440" step="5" value={form.estimatedMinutes} onChange={(event) => setForm({ ...form, estimatedMinutes: event.target.value })} placeholder="Ej. 45" /></label><label className="toggle-label"><input type="checkbox" checked={form.milestone} onChange={(event) => setForm({ ...form, milestone: event.target.checked })} /> Marcar como hito del proyecto</label></>}
       <label>Empieza<input required={!isTask} type="date" value={form.scheduledDate} onChange={(event) => schedule(event.target.value)} /><small className="field-help">{isTask ? "Déjala vacía para Inbox." : "Fija cuándo debe aparecer en tu agenda."}</small></label><label>Hora fija<input type="time" value={form.scheduledTime} onChange={(event) => setForm({ ...form, scheduledTime: event.target.value })} /></label><label>Termina<input type="date" min={form.scheduledDate} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>{isTask && <label>Fecha límite<input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label>}
     </div><SubmitButton busy={busy} label={record ? "Guardar cambios" : `Crear ${typeLabel.toLocaleLowerCase("es")}`} />
   </form>;
@@ -1488,7 +1717,7 @@ function PlanGoalForm({ projects, goals, record, defaultScope, defaultPeriod, to
 }
 
 function PlanTaskForm({ goal, goals, projects, record, defaultPeriod, today, busy, onSubmit }: { goal?: PlanGoal; goals: PlanGoal[]; projects: Project[]; record?: PlanTask; defaultPeriod?: string; today: string; busy: boolean; onSubmit: (payload: Record<string, unknown>) => void }) {
-  const [form, setForm] = useState({ id: record?.id, goalId: record?.goalId ?? goal?.id ?? "", projectId: record?.projectId ?? goal?.projectId ?? "", title: record?.title ?? "", period: record?.period ?? defaultPeriod ?? today.slice(0, 7), priority: record?.priority ?? "medium", status: record?.status ?? "todo", dueDate: record?.dueDate ?? "" });
+  const [form, setForm] = useState({ id: record?.id, goalId: record?.goalId ?? goal?.id ?? "", projectId: record?.projectId ?? goal?.projectId ?? "", title: record?.title ?? "", period: record?.period ?? defaultPeriod ?? today.slice(0, 7), priority: record?.priority ?? "medium", importance: record?.importance ?? "medium", urgency: record?.urgency ?? "medium", status: record?.status ?? "todo", dueDate: record?.dueDate ?? "" });
   function changeGoal(goalId: string) {
     const selectedGoal = goals.find((item) => item.id === goalId);
     setForm({ ...form, goalId, projectId: selectedGoal?.projectId ?? form.projectId, period: selectedGoal?.scope === "month" ? selectedGoal.period : form.period });
@@ -1500,7 +1729,7 @@ function PlanTaskForm({ goal, goals, projects, record, defaultPeriod, today, bus
       {!goal && <label>Objetivo (opcional)<select value={form.goalId} onChange={(event) => changeGoal(event.target.value)}><option value="">Tarea independiente</option>{goals.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}
       <label>Mes del plan<input required type="month" value={form.period} onChange={(event) => setForm({ ...form, period: event.target.value })} /></label>
       <label>Proyecto relacionado<select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">Sin proyecto</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label>
-      <label>Prioridad<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
+      <label>Importancia<select value={form.importance} onChange={(event) => setForm({ ...form, importance: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label><label>Urgencia<select value={form.urgency} onChange={(event) => setForm({ ...form, urgency: event.target.value as "low"|"medium"|"high" })}><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
       <label>Estado<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as PlanTask["status"] })}><option value="todo">Por hacer</option><option value="doing">En curso</option><option value="done">Hecha</option></select></label>
       <label>Fecha límite<input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label>
     </div>
@@ -1681,7 +1910,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     const scheduledDate = typeof payload.scheduledDate === "string" && payload.scheduledDate ? payload.scheduledDate : null;
     const itemType = payload.itemType === "event" || payload.itemType === "reminder" ? payload.itemType : "task";
     const status = itemType === "task" && payload.status === "done" ? "done" : itemType === "task" && payload.status === "doing" ? "doing" : "todo";
-    const record = normalizeProjectTask({ ...payload, id, itemType, status, scheduledDate, endDate: payload.endDate || scheduledDate, sprintWeek: scheduledDate ? startOfWeek(scheduledDate) : payload.sprintWeek || null, dueDate: itemType === "task" ? payload.dueDate || null : null, goalId: itemType === "task" ? payload.goalId || null : null, scheduledTime: payload.scheduledTime || null, completedAt: status === "done" ? payload.completedAt || argentinaDateKey(new Date()) : null, estimatedMinutes: itemType === "task" ? nullableNumber(payload.estimatedMinutes) : null } as unknown as ProjectTask);
+    const record = normalizeProjectTask({ ...payload, id, itemType, status, scheduledDate, endDate: payload.endDate || scheduledDate, sprintWeek: scheduledDate ? startOfWeek(scheduledDate) : payload.sprintWeek || null, dueDate: itemType === "task" ? payload.dueDate || null : null, goalId: itemType === "task" ? payload.goalId || null : null, scheduledTime: payload.scheduledTime || null, completedAt: status === "done" ? payload.completedAt || argentinaDateKey(new Date()) : null, estimatedMinutes: itemType === "task" ? nullableNumber(payload.estimatedMinutes) : null, importance: itemType === "task" ? payload.importance || "medium" : "medium", urgency: itemType === "task" ? payload.urgency || "medium" : "medium", milestone: itemType === "task" ? Boolean(payload.milestone) : false } as unknown as ProjectTask);
     return { ...current, projectTasks: upsertLocal(current.projectTasks, record) };
   }
   if (resource === "planGoal") {
@@ -1689,7 +1918,7 @@ function saveLocalRecord(current: LifeData, resource: Resource, payload: Record<
     return { ...current, planGoals: upsertLocal(current.planGoals, record) };
   }
   if (resource === "planTask") {
-    const record = { ...payload, id, goalId: payload.goalId || null, projectId: payload.projectId || null, period: payload.period || (typeof payload.dueDate === "string" ? payload.dueDate.slice(0, 7) : argentinaDateKey(new Date()).slice(0, 7)), priority: payload.priority || "medium", dueDate: payload.dueDate || null } as unknown as PlanTask;
+    const record = { ...payload, id, goalId: payload.goalId || null, projectId: payload.projectId || null, period: payload.period || (typeof payload.dueDate === "string" ? payload.dueDate.slice(0, 7) : argentinaDateKey(new Date()).slice(0, 7)), priority: payload.priority || "medium", importance: payload.importance || "medium", urgency: payload.urgency || "medium", dueDate: payload.dueDate || null } as unknown as PlanTask;
     return { ...current, planTasks: upsertLocal(current.planTasks, record) };
   }
   if (resource === "focusSession") {
@@ -1792,6 +2021,9 @@ function normalizeProjectTask(task: ProjectTask): ProjectTask {
     ...task,
     itemType,
     priority: task.priority || "medium",
+    importance: task.importance === "low" || task.importance === "high" ? task.importance : "medium",
+    urgency: task.urgency === "low" || task.urgency === "high" ? task.urgency : "medium",
+    milestone: Boolean(task.milestone),
     energy: task.energy === "low" || task.energy === "high" ? task.energy : "medium",
     status: itemType === "task" ? task.status === "done" ? "done" : task.status === "doing" ? "doing" : "todo" : "todo",
     estimatedMinutes: itemType !== "task" || task.estimatedMinutes == null || !Number.isFinite(Number(task.estimatedMinutes)) ? null : Math.max(5, Math.round(Number(task.estimatedMinutes))),
@@ -1824,10 +2056,14 @@ function sprintTaskLanes(tasks: ProjectTask[], weekStart: string, weekEnd: strin
   });
 }
 
+function taskLevelRank(value?: string) { return value === "high" ? 3 : value === "low" ? 1 : 2; }
+function taskPriorityScore(task: Pick<ProjectTask, "importance" | "urgency">) { return taskLevelRank(task.importance) * 3 + taskLevelRank(task.urgency) * 2; }
+function taskLevelLabel(value?: string) { return value === "high" ? "Alta" : value === "low" ? "Baja" : "Media"; }
 function compareProjectTasks(a: ProjectTask, b: ProjectTask) {
-  const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const score = taskPriorityScore(b) - taskPriorityScore(a);
+  const due = (a.dueDate || a.scheduledDate || "9999-12-31").localeCompare(b.dueDate || b.scheduledDate || "9999-12-31");
   const energyRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
-  return (priorityRank[a.priority] ?? 1) - (priorityRank[b.priority] ?? 1) || (energyRank[a.energy] ?? 1) - (energyRank[b.energy] ?? 1) || a.title.localeCompare(b.title, "es");
+  return score || due || (energyRank[a.energy] ?? 1) - (energyRank[b.energy] ?? 1) || a.title.localeCompare(b.title, "es");
 }
 
 function focusCategoryNames(sessions: FocusSession[]) {
