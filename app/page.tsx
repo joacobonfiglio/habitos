@@ -478,7 +478,7 @@ export default function HomePage() {
 
         {error && <div className="error-banner">{error}</div>}
         <>
-            {view === "today" && <TodayView data={data} today={today} onToggleHabit={toggleHabit} onToggleBullet={toggleBullet} onNavigate={navigate} onOpen={setModal} />}
+            {view === "today" && <TodayView data={data} today={today} onToggleHabit={toggleHabit} onToggleBullet={toggleBullet} onNavigate={navigate} onOpen={setModal} onSave={save} />}
             {view === "focus" && <FocusView data={data} today={today} onSave={save} onDelete={(id) => remove("focusSession", id)} />}
             {view === "habits" && <HabitsView data={data} today={today} onToggle={toggleHabit} onOpen={setModal} onDelete={(id) => remove("habit", id)} />}
             {view === "metrics" && <MetricsView data={data} onOpen={setModal} onDelete={(id) => remove("metric", id)} />}
@@ -519,10 +519,11 @@ export default function HomePage() {
   );
 }
 
-function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onOpen }: {
+function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onOpen, onSave }: {
   data: LifeData; today: string;
   onToggleHabit: (habit: Habit, date?: string) => Promise<void>; onToggleBullet: (item: BulletItem) => Promise<void>;
   onNavigate: (view: View) => void; onOpen: (modal: Modal) => void;
+  onSave: (resource: Resource, payload: Record<string, unknown>, message?: string) => Promise<void>;
 }) {
   const todayLogs = data.habitLogs.filter((log) => log.date === today && log.done);
   const todayMetric = data.metrics.find((item) => item.date === today);
@@ -544,6 +545,19 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
   const nextScheduled = upcomingProjectTasks
     .filter((task) => task.scheduledDate === today)
     .sort((a, b) => (a.scheduledTime || "99:99").localeCompare(b.scheduledTime || "99:99"));
+  const monthGoals = data.planGoals
+    .filter((goal) => goal.scope === "month" && goal.period === today.slice(0, 7))
+    .sort((a, b) => {
+      const aDone = goalCompletion(a, data.planTasks, data.projectTasks).complete ? 1 : 0;
+      const bDone = goalCompletion(b, data.planTasks, data.projectTasks).complete ? 1 : 0;
+      return aDone - bDone || (a.priority === "high" ? -1 : 1);
+    })
+    .slice(0, 5);
+
+  async function setTodayTaskStatus(task: ProjectTask, status: ProjectTask["status"]) {
+    if (task.status === status) return;
+    await onSave("projectTask", { ...task, status }, status === "done" ? "Tarea completada" : "Estado actualizado");
+  }
 
   return (
     <div className="page-content today-v3">
@@ -575,11 +589,15 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
             </header>
 
             <div className="today-v3-agenda-list">
-              {nextScheduled.map((task) => <button className="today-v3-agenda-row scheduled" key={task.id} onClick={() => onNavigate("projects")}>
+              {nextScheduled.map((task) => <article className="today-v3-agenda-row scheduled" key={task.id}>
                 <span className="today-v3-time">{task.scheduledTime || "Plan"}</span>
-                <span className="today-v3-row-copy"><strong>{task.title}</strong><small>{task.itemType === "event" ? "Evento" : task.itemType === "reminder" ? "Recordatorio" : "Tarea planificada"}</small></span>
-                <ArrowRight size={16}/>
-              </button>)}
+                <button className="today-v3-row-copy today-v3-row-open" onClick={() => onOpen({ kind:"projectTask", projects:data.projects, record:task })}><strong>{task.title}</strong><small>{task.itemType === "event" ? "Evento" : task.itemType === "reminder" ? "Recordatorio" : "Tarea planificada"}</small></button>
+                {isAction(task) ? <div className="task-status-inline compact" aria-label={`Estado de ${task.title}`}>
+                  <button className={task.status==="todo"?"active":""} onClick={() => setTodayTaskStatus(task,"todo")} title="Por hacer"><Circle size={12}/></button>
+                  <button className={task.status==="doing"?"active":""} onClick={() => setTodayTaskStatus(task,"doing")} title="En curso"><Activity size={12}/></button>
+                  <button className={task.status==="done"?"active":""} onClick={() => setTodayTaskStatus(task,"done")} title="Hecha"><Check size={12}/></button>
+                </div> : <ArrowRight size={16}/>}
+              </article>)}
               {todayBullets.slice(0, 7).map((item) => <button className={`today-v3-agenda-row ${item.done ? "done" : ""}`} key={item.id} onClick={() => onToggleBullet(item)}>
                 <span className="today-v3-check">{item.done ? <Check size={14}/> : <Circle size={15}/>}</span>
                 <span className="today-v3-row-copy"><strong>{item.text}</strong><small>{item.type || "Tarea personal"}</small></span>
@@ -589,6 +607,25 @@ function TodayView({ data, today, onToggleHabit, onToggleBullet, onNavigate, onO
             </div>
           </section>
 
+          <section className="today-v3-month-goals">
+            <header className="today-v3-section-head">
+              <div><span>OBJETIVOS DEL MES</span><h3>El camino de {monthLabel(today.slice(0,7))}</h3></div>
+              <button onClick={() => onNavigate("projects")}>Ver planificación <ArrowRight size={14}/></button>
+            </header>
+            <div className="today-v3-goals-list">
+              {monthGoals.map((goal) => {
+                const completion = goalCompletion(goal, data.planTasks, data.projectTasks);
+                const project = data.projects.find((item) => item.id === goal.projectId);
+                return <button key={goal.id} className={completion.complete ? "done" : ""} onClick={() => onOpen({ kind:"planGoal", projects:data.projects, record:goal })}>
+                  <div className="today-v3-goal-top"><span>{project?.title || "Objetivo personal"}</span><strong>{completion.progress == null ? "—" : `${completion.progress}%`}</strong></div>
+                  <h4>{goal.title}</h4>
+                  <div className="today-v3-goal-track"><i style={{ width: `${completion.progress ?? 0}%` }}/></div>
+                  <small>{completion.complete ? "Completado" : goal.targetDate ? `Fecha objetivo · ${formatShortDate(goal.targetDate)}` : "En progreso"}</small>
+                </button>;
+              })}
+              {!monthGoals.length && <div className="today-v3-goals-empty"><Target size={20}/><div><strong>Todavía no definiste objetivos para este mes.</strong><small>Marcá la dirección antes de llenar la agenda.</small></div><button onClick={() => onOpen({ kind:"planGoal", projects:data.projects, defaultScope:"month", defaultPeriod:today.slice(0,7) })}>Crear objetivo</button></div>}
+            </div>
+          </section>
           <section className="today-v3-focus">
             <div className="today-v3-focus-copy">
               <span>ESPACIO DE ENFOQUE</span>
@@ -1291,7 +1328,11 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
   const taskRow = (task: ProjectTask, showProject = true) => {
     const project = data.projects.find((item) => item.id === task.projectId);
     return <article className={`planner-v4-task ${task.status} ${task.milestone ? "milestone" : ""}`} key={task.id}>
-      <button className="planner-v4-check" onClick={() => advanceTask(task)} aria-label={`Cambiar estado de ${task.title}`}>{task.status === "doing" ? <Activity size={15}/> : <Circle size={15}/>}</button>
+      <div className="task-status-inline" aria-label={`Estado de ${task.title}`}>
+        <button className={task.status==="todo"?"active":""} onClick={() => onSave("projectTask",{...task,status:"todo"},"Estado actualizado")} title="Por hacer"><Circle size={12}/><span>Por hacer</span></button>
+        <button className={task.status==="doing"?"active":""} onClick={() => onSave("projectTask",{...task,status:"doing"},"Tarea en curso")} title="En curso"><Activity size={12}/><span>En curso</span></button>
+        <button className={task.status==="done"?"active":""} onClick={() => onSave("projectTask",{...task,status:"done"},"Tarea completada")} title="Hecha"><Check size={12}/><span>Hecha</span></button>
+      </div>
       <button className="planner-v4-task-main" onClick={() => onOpen({kind:"projectTask",projects:data.projects,record:task})}>
         <div className="planner-v4-task-title"><strong>{task.title}</strong>{task.milestone && <span className="milestone-chip"><Star size={10}/> Hito</span>}</div>
         <small>{showProject ? `${project?.title ?? "Sin proyecto"} · ` : ""}{task.dueDate ? `vence ${formatShortDate(task.dueDate)}` : task.scheduledDate ? formatShortDate(task.scheduledDate) : "Sin fecha"}{task.estimatedMinutes ? ` · ${formatMinutes(task.estimatedMinutes)}` : ""}</small>
@@ -1396,7 +1437,11 @@ function ProjectsView({ data, today, onOpen, onSave, onDelete }: {
                   <div className="planner-v4-roadmap-content">
                     <header><div><small>{task.status==="done"?"COMPLETADO":task.status==="doing"?"EN CURSO":"PRÓXIMO"} {task.milestone?"· HITO":""}</small><strong>{task.title}</strong></div><div className="planner-v4-levels"><span className={`importance ${task.importance||"medium"}`}>I · {taskLevelLabel(task.importance)}</span><span className={`urgency ${task.urgency||"medium"}`}>U · {taskLevelLabel(task.urgency)}</span></div></header>
                     <p>{task.description||"Sin detalle adicional."}</p>
-                    <footer><span><CalendarDays size={12}/>{task.dueDate?formatShortDate(task.dueDate):task.scheduledDate?formatShortDate(task.scheduledDate):"Sin fecha"}</span>{task.estimatedMinutes&&<span><Timer size={12}/>{formatMinutes(task.estimatedMinutes)}</span>}<button onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,record:task})}>Editar</button></footer>
+                    <footer><span><CalendarDays size={12}/>{task.dueDate?formatShortDate(task.dueDate):task.scheduledDate?formatShortDate(task.scheduledDate):"Sin fecha"}</span>{task.estimatedMinutes&&<span><Timer size={12}/>{formatMinutes(task.estimatedMinutes)}</span>}<div className="task-status-inline compact">
+                      <button className={task.status==="todo"?"active":""} onClick={()=>onSave("projectTask",{...task,status:"todo"},"Estado actualizado")} title="Por hacer"><Circle size={11}/></button>
+                      <button className={task.status==="doing"?"active":""} onClick={()=>onSave("projectTask",{...task,status:"doing"},"Tarea en curso")} title="En curso"><Activity size={11}/></button>
+                      <button className={task.status==="done"?"active":""} onClick={()=>onSave("projectTask",{...task,status:"done"},"Tarea completada")} title="Hecha"><Check size={11}/></button>
+                    </div><button onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,record:task})}>Editar</button></footer>
                   </div>
                 </article>)}
                 {!roadmap.length&&<EmptyState text="Este proyecto todavía no tiene tareas ni hitos." action="Añadir primera tarea" onClick={()=>onOpen({kind:"projectTask",projects:data.projects,project:selectedProject,defaultDate:today})}/>}
