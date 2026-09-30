@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity, ArrowRight, BatteryCharging, Check, ChevronRight, Dumbbell,
   Footprints, Gauge, HeartPulse, Moon, Plus, RotateCcw, Scale, Sparkles,
-  Target, TrendingUp, Zap
+  Target, TrendingUp, Zap, X, PlayCircle, Info
 } from "lucide-react";
 import "./health.css";
 
@@ -42,6 +42,122 @@ const HEALTH_KEY = "lifeos-health-v1";
 
 const emptyLife:LifeData = { habits:[], habitLogs:[], metrics:[] };
 const emptyHealth:HealthState = { checks:[], strengthSessions:[], walks:[] };
+
+type ExerciseGuide = {
+  focus:string;
+  steps:string[];
+  mistakes:string[];
+  easier:string;
+  harder:string;
+};
+
+const exerciseGuides:Record<string,ExerciseGuide> = {
+  "Sentadilla tempo":{
+    focus:"Piernas, glúteos, core y control del movimiento.",
+    steps:["Pies al ancho de los hombros.","Bajá en 3 segundos manteniendo el pecho erguido.","Pausa 1 segundo abajo.","Subí empujando el suelo con todo el pie."],
+    mistakes:["Levantar los talones.","Juntar las rodillas hacia adentro.","Caer rápido sin control."],
+    easier:"Sentadilla a una silla.",
+    harder:"Sentadilla tempo con pausa más larga o sentadilla a una pierna asistida."
+  },
+  "Flexiones":{
+    focus:"Pecho, hombros, tríceps y core.",
+    steps:["Manos apenas más abiertas que los hombros.","Cuerpo alineado de cabeza a pies.","Bajá controlado acercando el pecho al suelo.","Empujá sin hundir la cadera."],
+    mistakes:["Abrir demasiado los codos.","Hundir la cadera.","Acortar demasiado el recorrido."],
+    easier:"Flexiones inclinadas sobre mesa o banco.",
+    harder:"Flexiones declinadas o con tempo lento."
+  },
+  "Zancadas alternas":{
+    focus:"Piernas, glúteos, equilibrio y estabilidad.",
+    steps:["Da un paso suficientemente largo.","Bajá ambas rodillas con control.","Mantené el torso erguido.","Empujá con la pierna delantera y alterná."],
+    mistakes:["Paso demasiado corto.","Rodilla hacia adentro.","Inclinar demasiado el tronco."],
+    easier:"Zancada estática.",
+    harder:"Walking lunges o pausa abajo."
+  },
+  "Puente de glúteos a una pierna":{
+    focus:"Glúteos, isquiosurales y estabilidad de cadera.",
+    steps:["Acostate boca arriba con un pie apoyado.","Extendé la otra pierna.","Elevá la cadera empujando con el talón.","Pausa arriba y bajá controlado."],
+    mistakes:["Arquear la zona lumbar.","Rotar la pelvis.","No extender completamente la cadera."],
+    easier:"Puente con las dos piernas.",
+    harder:"Pausa más larga o tempo lento."
+  },
+  "Plancha frontal":{
+    focus:"Core, hombros y estabilidad.",
+    steps:["Apoyá antebrazos y puntas de los pies.","Alineá cabeza, cadera y tobillos.","Contraé abdomen y glúteos.","Respirá sin perder posición."],
+    mistakes:["Hundir la cadera.","Elevar demasiado la cadera.","Tensar el cuello."],
+    easier:"Plancha con rodillas apoyadas.",
+    harder:"Plancha con toques de hombro o apoyo reducido."
+  },
+  "Burpees":{
+    focus:"Capacidad cardiovascular, piernas, brazos y coordinación.",
+    steps:["Desde pie, bajá y apoyá las manos.","Llevá los pies atrás.","Volvé con los pies al frente.","Levantate y saltá de forma controlada."],
+    mistakes:["Ir demasiado rápido y perder técnica.","Dejar caer la zona lumbar.","No controlar la recepción."],
+    easier:"Sin flexión y sin salto.",
+    harder:"Burpee completo con flexión y salto."
+  },
+  "Pike push-ups":{
+    focus:"Hombros, tríceps y parte alta del pecho.",
+    steps:["Formá una V invertida con el cuerpo.","Cargá peso sobre las manos.","Llevá la cabeza hacia el suelo entre las manos.","Empujá para volver."],
+    mistakes:["Convertirlo en una flexión normal.","No cargar los hombros.","Recorrido demasiado corto."],
+    easier:"Pike push-up con manos elevadas.",
+    harder:"Pike push-up con pies elevados."
+  },
+  "Sentadilla con salto":{
+    focus:"Potencia de piernas y acondicionamiento.",
+    steps:["Bajá en sentadilla con control.","Impulsate hacia arriba.","Aterrizá suave sobre todo el pie.","Enlazá la siguiente repetición sin colapsar rodillas."],
+    mistakes:["Aterrizar duro.","Rodillas hacia adentro.","Priorizar velocidad sobre técnica."],
+    easier:"Sentadilla rápida sin salto.",
+    harder:"Más repeticiones o menos descanso."
+  },
+  "Mountain climbers":{
+    focus:"Core, hombros y capacidad cardiovascular.",
+    steps:["Partí de plancha alta.","Llevá una rodilla hacia el pecho.","Alterná sin perder la línea corporal.","Mantené hombros sobre las manos."],
+    mistakes:["Subir demasiado la cadera.","Rebotar sin control.","Mover el peso demasiado hacia atrás."],
+    easier:"Versión lenta.",
+    harder:"Más velocidad manteniendo técnica."
+  },
+  "Hollow hold":{
+    focus:"Core profundo y control corporal.",
+    steps:["Acostate boca arriba.","Pegá la zona lumbar al suelo.","Elevá hombros y piernas.","Mantené tensión sin arquear la espalda."],
+    mistakes:["Despegar la zona lumbar.","Tirar del cuello.","Bajar demasiado las piernas."],
+    easier:"Rodillas flexionadas.",
+    harder:"Brazos y piernas completamente extendidos."
+  },
+  "Walking lunges":{
+    focus:"Piernas, glúteos y resistencia muscular.",
+    steps:["Da un paso amplio hacia adelante.","Bajá en zancada.","Impulsate y avanzá con la otra pierna.","Mantené el torso alto."],
+    mistakes:["Pasos cortos.","Perder equilibrio por velocidad.","Rodillas hacia adentro."],
+    easier:"Zancadas alternas en el sitio.",
+    harder:"Más distancia o pausa abajo."
+  },
+  "Flexiones cerradas":{
+    focus:"Tríceps, pecho y core.",
+    steps:["Colocá las manos más cerca entre sí.","Mantené el cuerpo alineado.","Bajá con los codos cerca del torso.","Empujá sin perder tensión abdominal."],
+    mistakes:["Abrir los codos.","Hundirse en la cadera.","Juntar demasiado las manos."],
+    easier:"Flexiones cerradas inclinadas.",
+    harder:"Declinadas o tempo lento."
+  },
+  "Bear crawl":{
+    focus:"Core, hombros, piernas y coordinación.",
+    steps:["Partí en cuadrupedia con rodillas apenas elevadas.","Mantené la espalda neutra.","Avanzá mano y pie opuestos.","Movete lento y estable."],
+    mistakes:["Subir demasiado la cadera.","Moverse demasiado rápido.","Perder coordinación cruzada."],
+    easier:"Bear hold estático.",
+    harder:"Más distancia o más tiempo."
+  },
+  "Squat thrust":{
+    focus:"Piernas, core y acondicionamiento general.",
+    steps:["Desde pie, bajá y apoyá las manos.","Llevá los pies atrás.","Volvé con los pies al frente.","Ponete de pie y repetí."],
+    mistakes:["Redondear demasiado la espalda.","Perder tensión abdominal.","Acelerar sin control."],
+    easier:"Más lento y con paso atrás alternado.",
+    harder:"Más repeticiones o menos descanso."
+  },
+  "Side plank":{
+    focus:"Core lateral, glúteo medio y estabilidad.",
+    steps:["Apoyá un antebrazo.","Alineá hombro, cadera y pies.","Elevá la cadera.","Mantené el tronco sin rotar."],
+    mistakes:["Dejar caer la cadera.","Colapsar el hombro.","Rotar el pecho hacia el suelo."],
+    easier:"Con rodillas apoyadas.",
+    harder:"Elevar la pierna superior."
+  }
+};
 
 function dateKey(date = new Date()){
   return new Intl.DateTimeFormat("en-CA", {
@@ -171,6 +287,7 @@ export default function HealthPage(){
   const [checkDraft,setCheckDraft]=useState({energy:7,stress:5,fatigue:5,soreness:4});
   const [walkMinutes,setWalkMinutes]=useState(30);
   const [sessionDraft,setSessionDraft]=useState<ExerciseEntry[]|null>(null);
+  const [guideExercise,setGuideExercise]=useState<string|null>(null);
 
   useEffect(()=>{
     try{
@@ -355,7 +472,7 @@ export default function HealthPage(){
         {!sessionDraft&&<button className="primary-health start-session" onClick={startStrength}><Dumbbell size={17}/> Preparar sesión</button>}
         {(sessionDraft??generatedExercises).map((exercise,index)=><article className="exercise-row" key={exercise.id}>
           <div className="exercise-index">{String(index+1).padStart(2,"0")}</div>
-          <div><h3>{exercise.name}</h3><p>{exercise.sets} series · objetivo {exercise.reps} · RIR {exercise.targetRir}</p><small>{exercise.progression}</small>{lastSame?.exercises.find(e=>e.name===exercise.name)&&<small>Última vez: {(lastSame.exercises.find(e=>e.name===exercise.name) as ExerciseEntry | undefined)?.result??"—"} {exercise.unit==="sec"?"s":"reps"}</small>}</div>
+          <div><h3>{exercise.name}</h3><p>{exercise.sets} series · objetivo {exercise.reps} · RIR {exercise.targetRir}</p><small>{exercise.progression}</small>{lastSame?.exercises.find(e=>e.name===exercise.name)&&<small>Última vez: {(lastSame.exercises.find(e=>e.name===exercise.name) as ExerciseEntry | undefined)?.result??"—"} {exercise.unit==="sec"?"s":"reps"}</small>}<button className="exercise-help" onClick={()=>setGuideExercise(exercise.name)}><Info size={13}/> Cómo se hace</button></div>
           <label><span>{exercise.unit==="sec"?"SEG":"REPS"}</span><input type="number" step="1" min="0" value={exercise.result??""} placeholder="—"
             onChange={e=>{
               const value=e.target.value===""?null:Number(e.target.value);
@@ -379,6 +496,27 @@ export default function HealthPage(){
         <p>El motor usa reglas deterministas: con recuperación baja reduce series y densidad. Con buena recuperación progresa sin pesas: más repeticiones, más segundos, tempo más lento, menor descanso o una variante más difícil.</p>
       </aside>
     </section>}
+
+    {guideExercise&&exerciseGuides[guideExercise]&&<div className="exercise-guide-backdrop" onMouseDown={()=>setGuideExercise(null)}>
+      <section className="exercise-guide-modal" onMouseDown={e=>e.stopPropagation()}>
+        <header>
+          <div><span className="health-eyebrow">GUÍA DEL EJERCICIO</span><h2>{guideExercise}</h2><p>{exerciseGuides[guideExercise].focus}</p></div>
+          <button className="guide-close" onClick={()=>setGuideExercise(null)} aria-label="Cerrar"><X size={18}/></button>
+        </header>
+        <div className="guide-video-card">
+          <div><PlayCircle size={32}/><strong>Ver demostración en video</strong><small>Abrí una referencia visual del movimiento antes de empezar.</small></div>
+          <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(guideExercise+" exercise proper form")}`} target="_blank" rel="noreferrer">Ver video <ArrowRight size={14}/></a>
+        </div>
+        <div className="guide-grid">
+          <article><h3>Cómo hacerlo</h3><ol>{exerciseGuides[guideExercise].steps.map(step=><li key={step}>{step}</li>)}</ol></article>
+          <article><h3>Errores comunes</h3><ul>{exerciseGuides[guideExercise].mistakes.map(item=><li key={item}>{item}</li>)}</ul></article>
+        </div>
+        <div className="guide-levels">
+          <div><span>MÁS FÁCIL</span><strong>{exerciseGuides[guideExercise].easier}</strong></div>
+          <div><span>MÁS DIFÍCIL</span><strong>{exerciseGuides[guideExercise].harder}</strong></div>
+        </div>
+      </section>
+    </div>}
 
     {tab==="progress"&&<section className="progress-grid">
       <article className="health-card progress-stat"><Scale/><span>Peso actual</span><strong>{formatWeight(latestWeight)}</strong><small>{latestWeight!=null&&previousWeight!=null?`${latestWeight-previousWeight>0?"+":""}${(latestWeight-previousWeight).toFixed(1)} kg vs. registro anterior`:"Añadí más registros para ver tendencia"}</small></article>
