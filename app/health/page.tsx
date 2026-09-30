@@ -24,7 +24,7 @@ type WellbeingCheck = {
 };
 type ExerciseEntry = {
   id:string; name:string; sets:number; reps:string; targetRir:number;
-  weight:number|null; completed:boolean;
+  result:number|null; unit:"reps"|"sec"; progression:string; completed:boolean;
 };
 type StrengthSession = {
   id:string; date:string; name:string; readiness:number; duration:number;
@@ -119,16 +119,25 @@ function readinessLabel(score:number){
 
 const templates = {
   A:[
-    ["Sentadilla","3","6–8"],["Press banca","3","8–10"],["Remo","3","8–10"],
-    ["Peso muerto rumano","2","8–10"],["Elevaciones laterales","2","12–15"]
+    ["Sentadilla tempo","3","12–15","reps","Bajá en 3 s y mantené 1 s abajo"],
+    ["Flexiones","3","8–15","reps","Progresá hacia declinadas o tempo lento"],
+    ["Zancadas alternas","3","10–14 por pierna","reps","Aumentá repeticiones antes de subir dificultad"],
+    ["Puente de glúteos a una pierna","3","10–15 por pierna","reps","Pausa 2 s arriba"],
+    ["Plancha frontal","3","30–60 s","sec","Aumentá tiempo o pasá a plancha con apoyo reducido"]
   ],
   B:[
-    ["Peso muerto / variante","3","5–6"],["Press militar","3","8–10"],["Jalón al pecho","3","8–10"],
-    ["Prensa / zancadas","2","10–12"],["Curl bíceps","2","10–12"]
+    ["Burpees","4","8–12","reps","Buscá ritmo constante, no sprint"],
+    ["Pike push-ups","3","6–12","reps","Progresá elevando los pies"],
+    ["Sentadilla con salto","3","10–15","reps","Aterrizaje suave y controlado"],
+    ["Mountain climbers","4","30–45 s","sec","Subí tiempo manteniendo técnica"],
+    ["Hollow hold","3","20–40 s","sec","Aumentá tiempo o extendé brazos y piernas"]
   ],
   C:[
-    ["Sentadilla / prensa","3","8–10"],["Press inclinado","3","8–10"],["Remo sentado","3","10–12"],
-    ["Hip thrust","2","8–10"],["Tríceps","2","10–12"]
+    ["Walking lunges","4","12–20 por pierna","reps","Simula el patrón de lunges de HYROX"],
+    ["Flexiones cerradas","3","8–15","reps","Progresá con tempo o pies elevados"],
+    ["Bear crawl","4","30–45 s","sec","Más tiempo o mayor distancia sin perder postura"],
+    ["Squat thrust","4","12–20","reps","Aumentá densidad con descansos más cortos"],
+    ["Side plank","3","25–45 s por lado","sec","Aumentá tiempo o elevá la pierna superior"]
   ],
 } as const;
 
@@ -138,13 +147,15 @@ function nextStrengthName(sessions:StrengthSession[],weekStart:string){
 }
 function buildExercises(kind:"A"|"B"|"C", score:number, previous:StrengthSession|undefined):ExerciseEntry[]{
   const volumeFactor=score<48?.65:score<65?.8:1;
-  return templates[kind].map(([name,baseSets,reps],idx)=>{
+  return templates[kind].map(([name,baseSets,reps,unit,progression],idx)=>{
     const prev=previous?.exercises.find(e=>e.name===name);
     const sets=Math.max(2,Math.round(Number(baseSets)*volumeFactor));
-    let weight=prev?.weight??null;
-    if(weight!=null && score>=82 && prev?.completed) weight=Math.round((weight+2.5)*2)/2;
-    if(weight!=null && score<48) weight=Math.round((weight*.9)*2)/2;
-    return {id:`${kind}-${idx}`,name,sets,reps,targetRir:score<65?3:2,weight,completed:false};
+    const legacyResult = prev && "result" in prev ? prev.result : prev && "weight" in (prev as unknown as Record<string, unknown>) ? Number((prev as unknown as Record<string, unknown>).weight) : null;
+    return {
+      id:`${kind}-${idx}`, name, sets, reps, targetRir:score<65?3:2,
+      result:Number.isFinite(legacyResult as number)?legacyResult:null,
+      unit:unit as "reps"|"sec", progression, completed:false
+    };
   });
 }
 
@@ -296,8 +307,8 @@ export default function HealthPage(){
 
           <article className={`plan-action ${strengthDone?"done":""}`}>
             <div className="action-icon"><Dumbbell size={20}/></div>
-            <div><span>FUERZA</span><h3>{strengthScheduled?`Fuerza ${strengthKind}`:"Recuperación / movilidad"}</h3>
-              <p>{strengthScheduled ? `${generatedExercises.length} ejercicios · ${score<65?"volumen reducido":"sesión completa"}` : "Hoy no hay fuerza programada en la base semanal."}</p>
+            <div><span>FUERZA + HYROX</span><h3>{strengthScheduled?`Calistenia ${strengthKind}`:"Recuperación / movilidad"}</h3>
+              <p>{strengthScheduled ? `${generatedExercises.length} bloques · peso corporal · ${score<65?"volumen reducido":"sesión completa"}` : "Hoy no hay sesión de fuerza programada en la base semanal."}</p>
             </div>
             <div className="action-controls">
               {strengthScheduled&&!strengthDone?<button onClick={startStrength}>Ver rutina <ArrowRight size={15}/></button>:strengthDone?<span className="done-label"><Check size={14}/> Completado</span>:<span className="rest-label">Descanso</span>}
@@ -340,19 +351,19 @@ export default function HealthPage(){
 
     {tab==="training"&&<section className="training-layout">
       <div className="health-card training-main">
-        <header><div><span className="health-eyebrow">ENTRENAMIENTO DE HOY</span><h2>Fuerza {strengthKind}</h2><p>Objetivo: técnica sólida, progresión gradual y esfuerzo compatible con tu recuperación.</p></div><span className={`status-pill ${state.tone}`}>{score}/100</span></header>
+        <header><div><span className="health-eyebrow">ENTRENAMIENTO DE HOY</span><h2>Calistenia + HYROX {strengthKind}</h2><p>Sin gimnasio: fuerza con tu propio cuerpo, capacidad de trabajo y progresión por repeticiones, tiempo, tempo y dificultad.</p></div><span className={`status-pill ${state.tone}`}>{score}/100</span></header>
         {!sessionDraft&&<button className="primary-health start-session" onClick={startStrength}><Dumbbell size={17}/> Preparar sesión</button>}
         {(sessionDraft??generatedExercises).map((exercise,index)=><article className="exercise-row" key={exercise.id}>
           <div className="exercise-index">{String(index+1).padStart(2,"0")}</div>
-          <div><h3>{exercise.name}</h3><p>{exercise.sets} series · {exercise.reps} reps · RIR {exercise.targetRir}</p>{lastSame?.exercises.find(e=>e.name===exercise.name)&&<small>Última vez: {lastSame.exercises.find(e=>e.name===exercise.name)?.weight??"—"} kg</small>}</div>
-          <label><span>KG</span><input type="number" step="0.5" value={exercise.weight??""} placeholder="—"
+          <div><h3>{exercise.name}</h3><p>{exercise.sets} series · objetivo {exercise.reps} · RIR {exercise.targetRir}</p><small>{exercise.progression}</small>{lastSame?.exercises.find(e=>e.name===exercise.name)&&<small>Última vez: {(lastSame.exercises.find(e=>e.name===exercise.name) as ExerciseEntry | undefined)?.result??"—"} {exercise.unit==="sec"?"s":"reps"}</small>}</div>
+          <label><span>{exercise.unit==="sec"?"SEG":"REPS"}</span><input type="number" step="1" min="0" value={exercise.result??""} placeholder="—"
             onChange={e=>{
               const value=e.target.value===""?null:Number(e.target.value);
-              setSessionDraft(current=>(current??generatedExercises).map(item=>item.id===exercise.id?{...item,weight:value}:item));
+              setSessionDraft(current=>(current??generatedExercises).map(item=>item.id===exercise.id?{...item,result:value}:item));
             }}/></label>
         </article>)}
         <div className="training-footer">
-          <div><RotateCcw size={16}/><span>{lastSame?"Usamos tu última sesión como referencia.":"Primera sesión: registra cargas cómodas para crear tu línea base."}</span></div>
+          <div><RotateCcw size={16}/><span>{lastSame?"Usamos tus repeticiones y tiempos anteriores como referencia.":"Primera sesión: registrá repeticiones o segundos para crear tu línea base."}</span></div>
           <button className="primary-health" onClick={finishStrength} disabled={!sessionDraft}>Finalizar y guardar sesión</button>
         </div>
       </div>
@@ -365,7 +376,7 @@ export default function HealthPage(){
           <li>Fatiga: {todayCheck?.fatigue??"sin dato"}</li>
           <li>Sesiones de fuerza esta semana: {completedWeekStrength}</li>
         </ul>
-        <p>El motor usa reglas deterministas: con recuperación baja reduce volumen y evita progresiones agresivas; con buena recuperación y una sesión anterior completada puede proponer una subida pequeña.</p>
+        <p>El motor usa reglas deterministas: con recuperación baja reduce series y densidad. Con buena recuperación progresa sin pesas: más repeticiones, más segundos, tempo más lento, menor descanso o una variante más difícil.</p>
       </aside>
     </section>}
 
