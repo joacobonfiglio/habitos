@@ -19,6 +19,7 @@ const areas: Area[] = [
     {label:"Proyectos y notas",icon:FolderKanban,module:"Plan personal"},
   ]},
   { id:"health", label:"Salud", icon:HeartPulse, items:[
+    {label:"Mi salud",icon:HeartPulse,href:"/health"},
     {label:"Nutrición",icon:Apple,href:"/nutrition"},
     {label:"Métricas",icon:Activity,module:"Métricas"},
     {label:"Hábitos",icon:ListChecks,module:"Hábitos"},
@@ -45,7 +46,7 @@ export function LifeOSNavigationV2(){
   const router=useRouter();
   const [openArea,setOpenArea]=useState<string|null>(null);
   const [mobileOpen,setMobileOpen]=useState(false);
-  const activeArea=useMemo(()=>pathname.startsWith("/nutrition")?"health":null,[pathname]);
+  const activeArea=useMemo(()=>pathname.startsWith("/nutrition")||pathname.startsWith("/health")?"health":null,[pathname]);
 
   useEffect(()=>{
     document.documentElement.dataset.lifeosNav="top";
@@ -116,7 +117,7 @@ export function LifeOSNavigationV2(){
     <nav className="lifeos-mobile-nav-v2" aria-label="Navegación móvil LifeOS">
       <button className={pathname==="/"?"is-active":""} onClick={goHome}><Home size={20}/><span>Hoy</span></button>
       <button onClick={()=>{setMobileOpen(true);setOpenArea("productivity")}}><Target size={20}/><span>Plan</span></button>
-      <button className={pathname.startsWith("/nutrition")?"is-active":""} onClick={()=>{setMobileOpen(true);setOpenArea("health")}}><HeartPulse size={20}/><span>Salud</span></button>
+      <button className={pathname.startsWith("/health")||pathname.startsWith("/nutrition")?"is-active":""} onClick={()=>{setMobileOpen(false);setOpenArea(null);router.push("/health")}}><HeartPulse size={20}/><span>Salud</span></button>
       <button onClick={()=>setMobileOpen(true)}><Menu size={20}/><span>Más</span></button>
     </nav>
 
