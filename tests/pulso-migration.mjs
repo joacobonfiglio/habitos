@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import migration from '../public/pulso/migration.js';
+const {convert}=migration;
+const source=JSON.parse(fs.readFileSync(process.argv[2]));
+const html=fs.readFileSync('public/pulso/index.html','utf8');
+const js=html.match(/<script>\n([\s\S]*?)<\/script>/)[1];
+new vm.Script(js);
+const context=vm.createContext({document:{querySelector(){}},Date});
+vm.runInContext(js.slice(0,js.indexOf('/* ================= estado')),context);
+const state=convert(source,()=>vm.runInContext('defaults()',context));
+assert.deepEqual(state.S.legacyBackup,source.data);
+assert.equal(state.S.tasks.length,new Set([...source.data.projectTasks,...source.data.planTasks].map(x=>x.id)).size);
+assert.equal(state.S.projects.length,source.data.projects.length);
+assert.equal(state.S.bucket.length,source.data.bucketItems.length);
+for(const b of source.data.bucketItems){const migrated=state.S.bucket.find(x=>x.id===b.id);if(b.category==='Viajes')assert.equal(migrated.cat,'Viajes');if(b.status==='inProgress')assert.equal(migrated.status,'En marcha');}
+for(const h of source.data.habitLogs)assert.equal(state.D[h.date].habits[h.habitId],h.done);
+for(const m of source.data.metrics)assert.equal(state.D[m.date].body.weight,m.weight);
+for(const j of source.data.journals)assert.ok(state.D[j.date].mind.journal.includes(j.content));
+const total=source.data.focusSessions.filter(x=>x.completed).reduce((n,x)=>n+x.minutes,0);
+assert.equal(Object.values(state.D).reduce((n,d)=>n+(d.mind?.focusMin||0),0),total);
+assert.throws(()=>convert({},()=>vm.runInContext('defaults()',context)));
+console.log('Lossless migration verified:',Object.keys(state.D).length,'days,',state.S.tasks.length,'tasks,',total,'focus minutes');
