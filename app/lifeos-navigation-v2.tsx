@@ -49,21 +49,22 @@ export function LifeOSNavigationV2(){
   const activeArea=useMemo(()=>pathname.startsWith("/nutrition")||pathname.startsWith("/health")?"health":null,[pathname]);
 
   useEffect(()=>{
+    if(pathname==="/")return;
     document.documentElement.dataset.lifeosNav="top";
     return()=>{delete document.documentElement.dataset.lifeosNav};
-  },[]);
+  },[pathname]);
 
   useEffect(()=>{
-    if(pathname!=="/")return;
+    if(pathname!=="/legacy")return;
     const params=new URLSearchParams(window.location.search);
-    const module=params.get("module");
-    if(!module)return;
+    const moduleName=params.get("module");
+    if(!moduleName)return;
     let tries=0;
     const id=window.setInterval(()=>{
       tries++;
-      if(clickLegacyModule(module)||tries>20){
+      if(clickLegacyModule(moduleName)||tries>20){
         window.clearInterval(id);
-        if(tries<=20)history.replaceState({},"","/");
+        if(tries<=20)history.replaceState({},"","/legacy");
       }
     },80);
     return()=>window.clearInterval(id);
@@ -73,13 +74,14 @@ export function LifeOSNavigationV2(){
     setOpenArea(null);setMobileOpen(false);
     if(item.href){router.push(item.href);return;}
     if(!item.module)return;
-    if(pathname==="/"){
-      if(!clickLegacyModule(item.module))router.push(`/?module=${encodeURIComponent(item.module)}`);
-    } else router.push(`/?module=${encodeURIComponent(item.module)}`);
+    if(pathname==="/legacy"){
+      if(!clickLegacyModule(item.module))router.push(`/legacy?module=${encodeURIComponent(item.module)}`);
+    } else router.push(`/legacy?module=${encodeURIComponent(item.module)}`);
   };
-  const goHome=()=>{setMobileOpen(false);setOpenArea(null);if(pathname==="/"){clickLegacyModule("Hoy")}else router.push("/")};
-  const goSettings=()=>{setMobileOpen(false);setOpenArea(null);if(pathname==="/"){clickLegacyModule("Ajustes y datos")}else router.push("/?module=Ajustes%20y%20datos")};
+  const goHome=()=>{setMobileOpen(false);setOpenArea(null);if(pathname==="/legacy"){clickLegacyModule("Hoy")}else router.push("/")};
+  const goSettings=()=>{setMobileOpen(false);setOpenArea(null);if(pathname==="/legacy"){clickLegacyModule("Ajustes y datos")}else router.push("/legacy?module=Ajustes%20y%20datos")};
 
+  if(pathname==="/")return null;
   return <>
     <header className="lifeos-topnav" aria-label="Navegación LifeOS">
       <button className="lifeos-wordmark" onClick={goHome} aria-label="Ir a Hoy">

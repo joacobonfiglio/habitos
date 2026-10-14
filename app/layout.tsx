@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LifeOS",
-  description: "Tu segundo cerebro para organizar, registrar y evolucionar.",
+  title: "Pulso",
+  description: "Tu espacio para organizar tu día, construir hábitos y descubrir patrones.",
   manifest: "/manifest.webmanifest",
   other: {
     "codex-preview": "development",
