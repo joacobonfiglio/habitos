@@ -141,6 +141,7 @@ type MindNode = {
   projectId: string | null; x: number; y: number;
 };
 type LifeData = {
+  pulso?: unknown;
   habits: Habit[]; habitLogs: HabitLog[]; metrics: Metric[]; journals: Journal[];
   bullets: BulletItem[]; programs: Program[]; programLogs: ProgramLog[];
   projects: Project[]; projectTasks: ProjectTask[]; planGoals: PlanGoal[]; planTasks: PlanTask[];
@@ -1821,6 +1822,7 @@ function CategoryPicker({ value, categories, onChange, disabled, required }: { v
 function parseStoredData(raw: string): LifeData {
   const parsed = JSON.parse(raw) as Partial<LifeData>;
   return {
+    pulso: parsed.pulso,
     habits: Array.isArray(parsed.habits) ? parsed.habits : starterData.habits,
     habitLogs: Array.isArray(parsed.habitLogs) ? parsed.habitLogs : [],
     metrics: Array.isArray(parsed.metrics) ? parsed.metrics.map(normalizeMetric).sort((a, b) => b.date.localeCompare(a.date)) : [],
@@ -1984,6 +1986,7 @@ function mergeRecords<T extends { id: string }>(cloud: T[], local: T[], preferLo
 
 function mergeLifeData(cloud: LifeData, local: LifeData, preferLocal = false): LifeData {
   return {
+    pulso: cloud.pulso ?? local.pulso,
     habits: mergeRecords(cloud.habits, local.habits, preferLocal),
     habitLogs: mergeRecords(cloud.habitLogs, local.habitLogs, preferLocal),
     metrics: mergeRecords(cloud.metrics, local.metrics, preferLocal),

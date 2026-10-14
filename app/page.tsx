@@ -45,7 +45,7 @@ export default function PulsoPage() {
           revision = result.data.updated_at;
           base = data;
           localStorage.setItem(key()+":revision", revision!);
-          if(!pending)localStorage.removeItem(key()+":pending");
+          if(!pending && localStorage.getItem(key())===JSON.stringify(state))localStorage.removeItem(key()+":pending");
           announce("Sincronizado con tu cuenta");
         }
       } finally { saving = false; }

@@ -14,6 +14,7 @@ assert.deepEqual(state.S.legacyBackup,source.data);
 assert.equal(state.S.tasks.length,new Set([...source.data.projectTasks,...source.data.planTasks].map(x=>x.id)).size);
 assert.equal(state.S.projects.length,source.data.projects.length);
 assert.equal(state.S.bucket.length,source.data.bucketItems.length);
+for(const b of source.data.bucketItems){const migrated=state.S.bucket.find(x=>x.id===b.id);if(b.category==='Viajes')assert.equal(migrated.cat,'Viajes');if(b.status==='inProgress')assert.equal(migrated.status,'En marcha');}
 for(const h of source.data.habitLogs)assert.equal(state.D[h.date].habits[h.habitId],h.done);
 for(const m of source.data.metrics)assert.equal(state.D[m.date].body.weight,m.weight);
 for(const j of source.data.journals)assert.ok(state.D[j.date].mind.journal.includes(j.content));
