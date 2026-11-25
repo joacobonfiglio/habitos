@@ -81,9 +81,34 @@ export default function PulsoPage() {
         if(initial && localStorage.getItem(key()+":pending")){pending=initial;void saveCloud();}
       } catch { blocked = true; initial = readLocal(); initialized = true; status = "Sin conexión. Guardado en este dispositivo."; initFrame(); }
     }
+    const phoneRequest = async (path: string, options: RequestInit = {}) => {
+      if (!db || !userId) throw new Error("Iniciá sesión con Google para conectar Pulso.");
+      const session = await db.auth.getSession();
+      const token = session.data.session?.access_token;
+      if (!token) throw new Error("Iniciá sesión con Google para conectar Pulso.");
+      const response = await fetch(path, { ...options, cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "No se pudo conectar con Pulso.");
+      return body;
+    };
+    const readPhone = async (extra: Record<string, unknown> = {}) => {
+      try {
+        const [usage, devices] = await Promise.all([phoneRequest("/api/phone/days"), phoneRequest("/api/phone/pair")]);
+        send("pulso:phone-data", { days: usage.days, devices: devices.devices, ...extra });
+      } catch (error) { send("pulso:phone-data", { error: error instanceof Error ? error.message : "No se pudo consultar Pulso.", ...extra }); }
+    };
     const receive = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
       const message = event.data;
+      if (message?.type === "pulso:phone-read") await readPhone();
+      if (message?.type === "pulso:phone-pair") {
+        try { const pair = await phoneRequest("/api/phone/pair", { method: "POST" }); await readPhone({ token: pair.token }); }
+        catch (error) { send("pulso:phone-data", { error: error instanceof Error ? error.message : "No se pudo vincular el teléfono." }); }
+      }
+      if (message?.type === "pulso:phone-revoke" && typeof message.id === "string") {
+        try { await phoneRequest("/api/phone/pair?id=" + encodeURIComponent(message.id), { method: "DELETE" }); await readPhone({ clearToken: true }); }
+        catch { send("pulso:phone-data", { error: "No se pudo desvincular el teléfono." }); }
+      }
       if (message?.type === "pulso:ready") { frameReady = true; initFrame(); }
       if (message?.type === "pulso:save" && initialized && message.state?.S && message.state?.D) {
         try { localStorage.setItem(key(), JSON.stringify(message.state)); }

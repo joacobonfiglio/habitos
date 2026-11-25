@@ -1,0 +1,32 @@
+name: Pulso Android
+on:
+  push:
+    paths: ['android/**', '.github/workflows/pulso-android.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/pulso-android.yml']
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Validate Android sources and resources without signing
+        run: bash build.sh
+        working-directory: android/pulso
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+          PULSO_UNSIGNED_ONLY: '1'
+      - name: Session and period regression tests
+        working-directory: android/pulso
+        run: |
+          mkdir -p build/test-classes
+          javac -d build/test-classes app/src/main/java/ar/pulso/Sessions.java app/src/main/java/ar/pulso/Periods.java tests/*.java
+          java -cp build/test-classes ar.pulso.SessionsTest
+          java -cp build/test-classes ar.pulso.PeriodsTest

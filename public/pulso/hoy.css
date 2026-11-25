@@ -1,0 +1,75 @@
+/* A calm workspace, built around the day's actions. */
+:root { --acc:#355e53;--acc2:#eaf1ed;--acc3:#d9e7df;--bg:#f5f6f8;--line:#e5e8ed;--r3:18px;--ink3:#69727c }
+body{font-size:16px}
+main{max-width:1380px;padding:28px 20px 130px}
+.card{box-shadow:none}
+.btn{min-height:44px;box-shadow:none}
+.ib{width:44px;height:44px}
+.scale button{height:44px}
+.hoy-head{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:28px}
+.hoy-date,.eyebrow{font-size:14px;letter-spacing:.07em;font-weight:600;text-transform:uppercase;color:var(--ink2)}
+.hoy-head h1{font-size:clamp(28px,3vw,40px);line-height:1.2;margin:10px 0 8px;letter-spacing:-.04em}
+.hoy-head p{color:var(--ink2);max-width:46ch}
+.hoy-head-actions{display:flex;align-items:center;gap:12px;flex:none}
+.hoy-head-actions .hero-nav{gap:0;border:1px solid var(--line);border-radius:12px;background:var(--sf)}
+.demo-label{background:var(--warn2);color:var(--warn);padding:8px 12px;border-radius:10px;font-size:14px;margin-bottom:18px}
+.hoy-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:26px}
+.metric-card{padding:18px 20px;background:var(--sf);border:1px solid var(--line);border-radius:16px;text-align:left;min-height:132px;color:var(--ink);cursor:pointer}
+.metric-card .metric-label{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink2)}
+.metric-card svg{width:18px;height:18px}
+.metric-card b{display:block;font-size:29px;font-weight:600;letter-spacing:-.04em;margin:9px 0 2px;line-height:1.2}
+.metric-card b small{font-size:16px;font-weight:400;color:var(--ink2);letter-spacing:0}
+.metric-card .metric-help{font-size:14px;color:var(--ink2);display:block}
+.hoy-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(290px,1fr);gap:24px;align-items:start}
+.hoy-column{min-width:0;display:grid;gap:22px}
+.hoy-section{background:var(--sf);border:1px solid var(--line);border-radius:18px;padding:22px;min-width:0}
+.hoy-section .sec-h{margin-bottom:18px;gap:8px}
+.hoy-section h2{font-size:18px;line-height:1.3}
+.hoy-section .card{border:0;padding:0;background:transparent}
+.section-caption{color:var(--ink2);font-size:14px;margin:4px 0 0}
+.priority-list{display:grid;gap:0}
+.priority-task{display:flex;gap:12px;align-items:flex-start;padding:18px 0;border-top:1px solid var(--line)}
+.priority-task:first-child{border-top:0;padding-top:4px}
+.priority-task .check{margin-top:3px;width:30px;height:30px}
+.priority-task .task-title{display:block;text-align:left;border:0;padding:0;background:none;line-height:1.5;font-weight:500;font-size:16px}
+.priority-task p{font-size:14px;color:var(--ink2);margin-top:5px}
+.priority-foot{border-top:1px solid var(--line);padding-top:16px;margin-top:4px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--ink2)}
+.record-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:22px 0}
+.record-summary span{display:block;color:var(--ink2);font-size:14px}
+.record-summary b{font-size:20px;font-weight:600;display:block;margin-top:4px;letter-spacing:-.03em}
+.record-summary b small{font-size:14px;font-weight:400;color:var(--ink2)}
+.week-chart{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));align-items:end;gap:10px;height:118px;margin:24px 0 8px}
+.week-col{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:end;gap:10px}
+.week-bar{width:100%;max-width:32px;min-height:4px;border-radius:5px;background:var(--acc3)}
+.week-col.is-today .week-bar{background:var(--acc)}
+.week-col span{font-size:14px;color:var(--ink2)}
+.week-col.is-today span{color:var(--ink);font-weight:600}
+.week-caption{font-size:14px;color:var(--ink2);margin-top:16px}
+.phone-total{font-size:36px;font-weight:600;letter-spacing:-.04em;margin:8px 0}
+.phone-meta{font-size:14px;color:var(--ink2)}
+.phone-app{padding:12px 0;border-top:1px solid var(--line)}
+.phone-app .row{font-size:14px;justify-content:space-between}
+.phone-app .bar{margin-top:8px;height:5px}
+.phone-empty{padding:18px 0 0}
+.phone-empty p{color:var(--ink2);font-size:15px;line-height:1.6;margin:8px 0 18px}
+.connection-note{font-size:14px;color:var(--ink2);padding:12px 0 0;border-top:1px solid var(--line);margin-top:14px}
+.hoy-details{margin-top:24px}
+.hoy-details>summary{cursor:pointer;min-height:48px;font-weight:500;padding:12px 0}
+.hoy-details .sec{margin-top:16px}
+.hoy-section .empty{border:0;padding:16px 0;display:grid;gap:12px;text-align:left;justify-items:start}
+.daily-form{display:grid;gap:20px}
+.daily-form .grid2{grid-template-columns:1fr 1fr}
+.daily-form label{display:block;font-size:14px;font-weight:500;margin-bottom:8px}
+.daily-form fieldset{margin:0;padding:0;border:0}
+.daily-form legend{font-weight:600;font-size:16px;margin-bottom:14px}
+.daily-form .in{min-height:48px}
+.daily-form .btn.pri{width:100%;min-height:48px}
+.device-row{padding:14px 0;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;justify-content:space-between}
+.pair-code{font-family:monospace;font-size:16px;word-break:break-all;display:block;padding:16px;border:1px solid var(--line);border-radius:10px;margin:12px 0;background:var(--sf2);user-select:all}
+.phone-error{color:var(--neg);font-size:14px;margin:12px 0}
+@media(min-width:920px){.app{grid-template-columns:224px 1fr}main{padding:40px 34px 70px}nav.tabs{padding:28px 16px;background:var(--sf)}.brand{padding:0 10px 30px}.tab{min-height:46px;font-size:15px}.side-foot{border:0;background:var(--sf2);padding:16px}.side-foot b{font-size:22px}.fab{min-height:44px;margin-bottom:24px}}
+@media(max-width:1100px){.hoy-layout{grid-template-columns:minmax(0,1fr) minmax(260px,.9fr)}.metric-card{padding:16px}.hoy-section{padding:18px}.hoy-head-actions>.btn{display:none}}
+@media(max-width:760px){.hoy-layout{grid-template-columns:1fr}.hoy-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.hoy-head{align-items:flex-start;gap:10px}.hoy-head h1{font-size:30px}.hoy-head-actions{padding-top:2px}.hoy-head .hero-nav .ib{width:36px}.hoy-head p{font-size:15px}.hoy-date{font-size:13px}.metric-card{min-height:124px}.hoy-column{gap:18px}.hoy-section{padding:20px}.hoy-layout{gap:18px}.hoy-secondary .phone-section{order:-1}.record-summary{gap:8px}}
+@media(max-width:380px){.hoy-head{flex-wrap:wrap}.daily-form .grid2{grid-template-columns:1fr}.hoy-stats{gap:8px}.metric-card{padding:14px}.record-summary{grid-template-columns:1fr 1fr}}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--acc:#9bc8b7;--acc2:#1a3028;--acc3:#29463a;--bg:#101419;--line:#293038;--ink3:#9aa4ae}}
+:root[data-theme=dark]{--acc:#9bc8b7;--acc2:#1a3028;--acc3:#29463a;--bg:#101419;--line:#293038;--ink3:#9aa4ae}

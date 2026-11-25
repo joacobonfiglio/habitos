@@ -21,9 +21,6 @@ export const metadata: Metadata = {
   title: "Pulso",
   description: "Tu espacio para organizar tu día, construir hábitos y descubrir patrones.",
   manifest: "/manifest.webmanifest",
-  other: {
-    "codex-preview": "development",
-  },
   icons: {
     icon: "/pulso/icon.svg",
     shortcut: "/pulso/icon.svg",

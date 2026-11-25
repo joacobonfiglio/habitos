@@ -57,7 +57,7 @@ main{padding:20px 18px 140px;max-width:1040px;width:100%;margin:0 auto}
 
 /* ---------- navegación ---------- */
 nav.tabs{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--glass);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border:1px solid var(--line);border-radius:22px;box-shadow:var(--sh3);display:grid;grid-template-columns:repeat(6,1fr);align-items:center;padding:6px}
-.tab{background:none;border:0;padding:7px 2px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--ink3);font-weight:500;border-radius:14px;transition:color .2s,background .2s}
+.tab{background:none;border:0;padding:7px 2px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--ink2);font-weight:500;border-radius:14px;transition:color .2s,background .2s}
 .tab svg{width:22px;height:22px;transition:transform .2s var(--ease)}
 .tab.on{color:var(--ink)}
 .tab.on svg{color:var(--acc)}
@@ -339,6 +339,7 @@ select.in{appearance:none;-webkit-appearance:none;background-image:url("data:ima
 .skel{height:14px;border-radius:7px;background:var(--sf3);margin:10px 0;animation:sk 1.2s ease-in-out infinite alternate}
 @keyframes sk{to{opacity:.45}}
 </style>
+<link rel="stylesheet" href="/pulso/hoy.css">
 </head>
 <body>
 <div class="app">
@@ -707,37 +708,6 @@ function nextStep(s){const dd=getDay(s);const hs=S.habits.filter(h=>scheduled(h,
   if(!dd.close?.score)return "Cuando termines, <b>cierra el día</b> con una nota.";
   return "<b>Día completo.</b> Tus datos ya están trabajando para ti.";}
 const greet=()=>{const h=new Date().getHours();return h<6?"Buenas noches":h<13?"Buenos días":h<20?"Buenas tardes":"Buenas noches"};
-function vHoy(){
-  const s=ui.date,dd=getDay(s),isT=s===TODAY();
-  const hs=S.habits.filter(h=>scheduled(h,s)&&h.freq?.kind!=="weekly");const hd=hs.filter(h=>hDone(h,s)).length;
-  const top=sortedTasks(pending()).slice(0,3);
-  const blocks=(dd.blocks||[]).slice().sort((a,b)=>a.t.localeCompare(b.t));
-  const dayTasks=S.tasks.filter(t=>t.date===s);
-  const lesson=lessonOfDay();
-  const hero=`<section class="hero"><div class="hero-top"><div class="grow"><div class="date">${longDate(s)}${!isT?` · <button class="btn sm ghost" style="padding:2px 6px" data-a="dayToday">Volver a hoy</button>`:""}</div><h1>${isT?greet():"Registro de un día pasado"}</h1><p class="next">${nextStep(s)}</p></div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div class="hero-nav"><button class="ib" data-a="dayPrev" aria-label="Día anterior">${ICON.left}</button><button class="ib" data-a="dayNext" aria-label="Día siguiente" ${isT?"disabled":""}>${ICON.right}</button></div>${ring(dayProgress(s))}</div></div>
-    <div class="hero-stats"><div><b>${globalStreak()}</b><span>días de racha</span></div><div><b>${hd}<span class="faint" style="font-size:14px">/${hs.length}</span></b><span>hábitos</span></div><div><b>${dd.mind?.focusMin||0}<span class="faint" style="font-size:13px"> min</span></b><span>foco</span></div><div><b>${dd.close?.score?dd.close.score+'<span class="faint" style="font-size:14px">/10</span>':"–"}</b><span>nota del día</span></div></div>
-    <div class="hero-heat"><div class="row between" style="margin-bottom:8px"><span class="tiny faint">Constancia, últimos 6 meses</span>${legend()}</div>${heat(effortIdx,6)}</div></section>`;
-  const sCi=`<div class="sec o1">${ciBlock(s)}${lowEnergy()&&isT?`<div class="banner">${ICON.info}<span>Energía baja hoy: te propongo tareas de relleno en lugar de grandes apuestas.</span></div>`:""}</div>`;
-  const sCtx=`<div class="sec o2"><div class="sec-h"><h2>Contexto del día</h2><span class="hint">Lo que el motor de patrones cruza</span></div>${tagsBlock(s)}</div>`;
-  const sPrio=mod("proyectos")&&isT?`<div class="sec o3"><div class="sec-h"><h2>Top 3 prioridades</h2><button class="btn sm ghost" data-a="go" data-t="planificar" data-s="tareas">Ver todas</button></div>
-    ${top.length?`<div class="card list">${top.map(t=>taskRow(t,true)).join("")}</div>`:`<div class="empty"><div><b>Sin tareas pendientes</b>Añade una y la ordeno por prioridad.</div><button class="btn sm" data-a="taskNew">Nueva tarea</button></div>`}</div>`:"";
-  const sHab=`<div class="sec o4"><div class="sec-h"><h2>Hábitos</h2><button class="btn sm ghost" data-a="habNew">${ICON.plus} Hábito</button></div>${habitsToday(s)}</div>`;
-  const sAg=mod("calendario")?`<div class="sec o5"><div class="sec-h"><h2>Agenda</h2><span class="hint">${blocks.length+dayTasks.length} elementos</span></div><div class="card">
-    ${blocks.map((b,i)=>`<div class="item"><b style="width:52px;font-weight:600">${esc(b.t)}</b><div class="grow">${esc(b.title)}</div><button class="ib" data-a="blockDel" data-i="${i}" data-d="${s}" aria-label="Quitar">${ICON.x}</button></div>`).join("")}
-    ${dayTasks.map(t=>`<div class="item"><span style="width:52px" class="tiny faint">Tarea</span><div class="grow">${esc(t.title)} <span class="pill">${t.effort}</span></div>${t.status==="Hecha"?'<span class="pill ok">Hecha</span>':""}</div>`).join("")}
-    ${!blocks.length&&!dayTasks.length?`<p class="small muted" style="margin:0 0 4px">Sin bloques. Reserva tiempo para lo importante.</p>`:""}
-    <div class="row" style="margin-top:12px"><input type="time" class="in" id="bk-t" style="width:112px" value="09:00" aria-label="Hora"><input class="in grow" id="bk-n" placeholder="Deep work, gimnasio…" aria-label="Bloque" enterkeyhint="done"><button class="btn" data-a="blockAdd" data-d="${s}">Añadir</button></div></div></div>`:"";
-  const sLes=lesson&&mod("aprendizajes")&&isT?`<div class="sec o6"><div class="lesson"><p class="tiny" style="color:var(--acc);font-weight:600">Lección para repasar</p><p class="q">${esc(lesson.text)}</p><p class="tiny faint">${esc(lesson.src||"")} · ${shortDate(lesson.date)}</p></div></div>`:"";
-  const sCl=`<div class="sec o7"><div class="sec-h"><h2>Cierre del día</h2><span class="hint">Por la noche</span></div><div class="card">
-    <label class="f" style="margin-top:0">Nota del día</label>
-    <div class="score">${Array.from({length:10},(_,i)=>`<button class="${dd.close?.score===i+1?"on":""}" data-a="score" data-v="${i+1}" data-d="${s}" aria-label="Nota ${i+1}">${i+1}</button>`).join("")}</div>
-    <label class="f" for="cl-line">Cómo fue, en una línea</label><input class="in" id="cl-line" data-i="close" data-k="line" data-d="${s}" value="${esc(dd.close?.line||"")}" placeholder="Opcional" enterkeyhint="done">
-    <label class="f" for="cl-les">Lección aprendida</label><input class="in" id="cl-les" data-i="close" data-k="lesson" data-d="${s}" value="${esc(dd.close?.lesson||"")}" placeholder="Opcional · alimenta tu banco de lecciones" enterkeyhint="done">
-  </div></div>`;
-  return hero+`<div class="cols"><div>${sCi}${sCtx}${sCl}</div><div>${sPrio}${sHab}${sAg}${sLes}</div></div>`;
-}
-
 /* ================= PLANIFICAR ================= */
 function taskRow(t,compact){
   const q=quad(t);const late=t.deadline&&t.deadline<TODAY()&&t.status!=="Hecha";
@@ -852,8 +822,8 @@ function vCuerpo(){
    <div class="grid2"><div><label class="f">Tipo</label><select class="in" data-c="body" data-k="train.type" data-d="${s}">${["","Fuerza","Correr","Bici","Natación","Yoga","Deporte","Caminata","Otro"].map(x=>`<option ${tr.type===x?"selected":""} value="${x}">${x||"Sin entrenamiento"}</option>`).join("")}</select></div>
    <div><label class="f">Duración (min)</label><input class="in" type="number" inputmode="numeric" min="0" value="${tr.min||""}" data-c="body" data-k="train.min" data-d="${s}"></div></div>
    <label class="f">Intensidad</label><div class="seg">${[1,2,3,4,5].map(i=>`<button class="${tr.int===i?"on":""}" data-a="bodySet" data-k="train.int" data-v="${i}" data-d="${s}">${i}</button>`).join("")}</div></div>
-  <div class="card"><div class="grid2"><div><label class="f" style="margin-top:0">Pasos</label><input class="in" type="number" inputmode="numeric" value="${b.steps||""}" data-c="body" data-k="steps" data-d="${s}"></div>
-   <div><label class="f" style="margin-top:0">Peso (kg, opcional)</label><input class="in" type="number" inputmode="decimal" step=".1" value="${b.weight||""}" data-c="body" data-k="weight" data-d="${s}"></div></div>
+  <div class="card"><div class="grid2"><div><label class="f" style="margin-top:0">Pasos</label><input class="in" type="number" inputmode="numeric" value="${b.steps??""}" data-c="body" data-k="steps" data-d="${s}"></div>
+   <div><label class="f" style="margin-top:0">Peso (kg, opcional)</label><input class="in" type="number" inputmode="decimal" step=".1" value="${b.weight??""}" data-c="body" data-k="weight" data-d="${s}"></div></div>
    <label class="f">¿Comiste bien hoy?</label><div class="seg">${[1,2,3,4,5].map(i=>`<button class="${b.food===i?"on":""}" data-a="bodySet" data-k="food" data-v="${i}" data-d="${s}">${i}</button>`).join("")}</div></div>
   <div class="sec"><div class="sec-h"><h2>Sueño, últimas 2 semanas</h2><span class="small muted">Media ${fmt(mean(last.map(d=>D[d]?.ci?.sleepH).filter(x=>x!=null))||0,1)} h</span></div>
    <div class="card"><div class="mbars">${last.map(d=>{const v=D[d]?.ci?.sleepH;return `<i title="${shortDate(d)}: ${v??"-"} h" style="height:${v?clamp((v-3)/9,0.05,1)*100:3}%;${v&&v<7?"background:var(--warn)":""}"></i>`}).join("")}</div><div class="row between tiny faint" style="margin-top:4px"><span>${shortDate(last[0])}</span><span>Hoy</span></div></div></div>
@@ -1351,12 +1321,90 @@ function makeDemo(){
   return {S:st,D:D2};
 }
 
+/* ================= espacio diario y Pulso Android ================= */
+const phone={days:{},devices:[],status:"idle",error:"",token:""};
+const phoneTime=ms=>{const m=Math.floor(ms/60000);return m>=60?`${Math.floor(m/60)} h ${m%60} min`:`${m} min`};
+const strengthValue=day=>day.body&&Object.prototype.hasOwnProperty.call(day.body,"strength")?day.body.strength:day.body?.train?.type==="Fuerza"?true:null;
+function metricTile(label,value,help,action="dailyOpen"){
+ return `<button class="metric-card" data-a="${action}"><span class="metric-label">${esc(label)}</span><b>${value}</b><span class="metric-help">${esc(help)}</span></button>`;
+}
+function vHoy(){
+ const s=ui.date,dd=getDay(s),b=dd.body||{},ci=dd.ci||{},isToday=s===TODAY();
+ const week=weekStartOf(s),days=Array.from({length:7},(_,i)=>addD(week,i));
+ const strength=days.filter(d=>d<=s&&strengthValue(getDay(d))===true).length;
+ const stepValues=days.filter(d=>d<=s).map(d=>getDay(d).body?.steps).filter(v=>v!=null);
+ const top=sortedTasks(pending().filter(t=>!t.date||t.date<=s)).slice(0,3);
+ const dailyTasks=S.tasks.filter(t=>t.date===s),completed=dailyTasks.filter(t=>t.status==="Hecha").length;
+ const p=phone.days[s],phoneValue=p?phoneTime(p.payload.total):"—";
+ const max=Math.max(...days.map(d=>getDay(d).body?.steps||0),1);
+ const weekChart=days.map((d,i)=>{const n=getDay(d).body?.steps;return `<div class="week-col ${d===s?"is-today":""}" title="${shortDate(d)}: ${n==null?"Sin datos":fmt(n)+" pasos"}"><div class="week-bar" style="height:${n==null?4:Math.max(4,n/max*82)}px;${n==null?"background:var(--sf3)":""}"></div><span>${WDS[i]}</span></div>`}).join("");
+ const ciValue=(key,unit="/5")=>ci[key]==null?"—":`${fmt(ci[key],key==="sleepH"?1:0)}<small> ${unit}</small>`;
+ const tasks=top.length?`<div class="priority-list">${top.map(t=>{const project=S.projects.find(p=>p.id===t.projectId);return `<div class="priority-task"><button class="check" data-a="taskTog" data-v="${t.id}" aria-label="Completar ${esc(t.title)}">${ICON.check}</button><div class="grow"><button class="task-title" data-a="taskEdit" data-v="${t.id}">${esc(t.title)}</button><p>${esc(project?.name||"Personal")}${t.deadline?` · ${t.deadline<s?"Vencía":"Vence"} ${shortDate(t.deadline)}`:""}</p></div></div>`}).join("")}</div>`:`<div class="empty"><div><b>Espacio para lo importante</b><p>Elegí una próxima acción para avanzar hoy.</p></div><button class="btn" data-a="taskNew">Crear una tarea</button></div>`;
+ return `${S.demo?'<div class="demo-label">Vista de ejemplo · estas métricas no son tus registros reales.</div>':""}
+ <header class="hoy-head"><div><div class="hoy-date">${longDate(s)}</div><h1>${isToday?"Tu día, con intención.":"Tu registro del día."}</h1><p>Un momento para organizarte y ver cómo estás.</p></div><div class="hoy-head-actions"><div class="hero-nav"><button class="ib" data-a="dayPrev" aria-label="Día anterior">${ICON.left}</button><button class="ib" data-a="dayNext" aria-label="Día siguiente" ${isToday?"disabled":""}>${ICON.right}</button></div><button class="btn pri" data-a="dailyOpen">${ICON.plus} Registrar mi día</button></div></header>
+ ${!isToday?'<button class="btn ghost" data-a="dayToday" style="margin-bottom:16px">Volver a hoy</button>':""}
+ <div class="hoy-stats">
+ ${metricTile("Peso",b.weight==null?"—":`${fmt(b.weight,1)}<small> kg</small>`,b.weight==null?"Sin registro este día":"Registro de este día")}
+ ${metricTile("Pasos",b.steps==null?"—":fmt(b.steps),"Actividad diaria")}
+ ${metricTile("Fuerza",strengthValue(dd)===null?"—":strengthValue(dd)?"Hecho":"Descanso",`${strength} ${strength===1?"sesión":"sesiones"} esta semana`)}
+ ${metricTile("Uso en aplicaciones",phoneValue,p?(p.complete?"Día completo · Pulso":"Datos parciales · Pulso"):"Conectá tu teléfono","phoneOpen")}
+ </div>
+ <div class="hoy-layout"><div class="hoy-column">
+ ${mod("proyectos")?`<section class="hoy-section"><div class="sec-h"><div><h2>Tus prioridades</h2><p class="section-caption">Hasta tres acciones para poner el foco.</p></div><button class="btn sm ghost" data-a="go" data-t="planificar" data-s="tareas">Ver todas</button></div>${tasks}<div class="priority-foot"><span>${completed} de ${dailyTasks.length} tareas del día completadas</span><button class="btn sm ghost" data-a="go" data-t="crecer" data-s="mente">Iniciar foco</button></div></section>`:""}
+ <section class="hoy-section"><div class="sec-h"><div><h2>Cómo estás hoy</h2><p class="section-caption">Completá lo que quieras. Cada registro cuenta.</p></div></div><div class="record-summary"><div><span>Descanso</span><b>${ciValue("sleepH","h")}</b></div><div><span>Energía</span><b>${ciValue("energy")}</b></div><div><span>Ánimo</span><b>${ciValue("mood")}</b></div></div><button class="btn pri" data-a="dailyOpen" style="width:100%">${dd.ci||dd.body?"Actualizar mi registro":"Registrar mi día"}</button></section>
+ ${S.habits.some(h=>scheduled(h,s))?`<section class="hoy-section"><div class="sec-h"><h2>Pequeñas acciones</h2><button class="btn sm ghost" data-a="habNew">Añadir hábito</button></div>${habitsToday(s)}</section>`:""}
+ </div><div class="hoy-column hoy-secondary">
+ <section class="hoy-section"><div class="sec-h"><div><h2>Tu semana en movimiento</h2><p class="section-caption">Pasos diarios · ${shortDate(week)}–${shortDate(addD(week,6))}</p></div></div><div class="week-chart" role="img" aria-label="Pasos de esta semana. ${days.map(d=>shortDate(d)+': '+(getDay(d).body?.steps??'sin datos')).join('. ')}">${weekChart}</div><p class="week-caption">${stepValues.length?`Promedio de ${fmt(mean(stepValues))} pasos · ${stepValues.length} días registrados`:"Tus pasos van a aparecer acá cuando los registres."}</p></section>
+ ${phoneBlock(s)}
+ <section class="hoy-section"><div class="sec-h"><h2>Tiempo con intención</h2></div><div class="record-summary" style="grid-template-columns:1fr 1fr"><div><span>Foco registrado</span><b>${dd.mind?.focusMin==null?"—":fmt(dd.mind.focusMin)} <small>min</small></b></div><div><span>Proyectos activos</span><b>${S.projects.filter(p=>p.status==="Activo").length}</b></div></div><button class="btn ghost" data-a="go" data-t="planificar" data-s="proyectos">Abrir proyectos</button></section>
+ </div></div>
+ <details class="hoy-details"><summary>Contexto y cierre del día</summary><div class="hoy-layout"><section class="hoy-section"><h2>Qué pasó hoy</h2><p class="section-caption" style="margin-bottom:16px">Contexto opcional para tu revisión.</p>${tagsBlock(s)}</section><section class="hoy-section"><h2>Una línea para recordar</h2><label class="f" for="cl-line">Cómo fue el día</label><input class="in" id="cl-line" data-i="close" data-k="line" data-d="${s}" value="${esc(dd.close?.line||"")}" placeholder="¿Qué te gustaría recordar?"></section></div></details>`;
+}
+function dailyForm(){
+ const s=ui.date,dd=getDay(s),b=dd.body||{},ci=dd.ci||{},strength=strengthValue(dd);
+ const input=(id,label,value,min,max,step=1)=>`<div><label for="${id}">${label}</label><input class="in" id="${id}" type="number" inputmode="${step===1?"numeric":"decimal"}" min="${min}" max="${max}" step="${step}" value="${value??""}" placeholder="Sin registrar"></div>`;
+ const select=(id,label,key)=>`<div><label for="${id}">${label}</label><select class="in" id="${id}"><option value="">Sin registrar</option>${CIW[key].map((word,i)=>`<option value="${i+1}" ${ci[key]===i+1?"selected":""}>${i+1} · ${word}</option>`).join("")}</select></div>`;
+ return `<p class="section-caption" style="margin-bottom:22px">${longDate(s)} · Todos los campos son opcionales.</p><form class="daily-form" id="daily-form" data-date="${s}"><fieldset><legend>Actividad y cuerpo</legend><div class="grid2">${input("daily-weight","Peso (kg)",b.weight,20,400,.1)}${input("daily-steps","Pasos",b.steps,0,150000)}</div><label for="daily-strength" style="margin-top:16px">¿Hiciste fuerza?</label><select class="in" id="daily-strength"><option value="">Sin registrar</option><option value="yes" ${strength===true?"selected":""}>Sí, entrené fuerza</option><option value="no" ${strength===false?"selected":""}>No, hoy no hice fuerza</option></select></fieldset><fieldset><legend>Descanso y bienestar</legend><div class="grid2">${input("daily-sleep","Horas de sueño",ci.sleepH,0,24,.5)}${select("daily-sleepq","Calidad del sueño","sleepQ")}${select("daily-energy","Energía","energy")}${select("daily-mood","Estado de ánimo","mood")}</div></fieldset><p class="section-caption">El uso del teléfono se consulta desde Pulso Android.</p><button class="btn pri" type="submit">Guardar registro</button></form>`;
+}
+function phoneBlock(s){
+ const p=phone.days[s];
+ return `<section class="hoy-section phone-section"><div class="sec-h"><div><h2>Tu relación con el teléfono</h2><p class="section-caption">Pulso Android</p></div><button class="btn sm ghost" data-a="phoneOpen">${p?"Detalle":"Conectar"}</button></div>${p?`<div class="phone-total">${phoneTime(p.payload.total)}</div><p class="phone-meta">${p.payload.sessions} sesiones${p.payload.notifications==null?"":` · ${p.payload.notifications} notificaciones`}</p><div style="margin-top:18px">${(p.payload.apps||[]).slice(0,3).map(a=>`<div class="phone-app"><div class="row"><span>${esc(a.name)}</span><b>${phoneTime(a.ms)}</b></div><div class="bar"><i style="width:${Math.min(100,a.ms/Math.max(p.payload.total,1)*100)}%"></i></div></div>`).join("")}</div><p class="connection-note">${p.complete?"Día completo":"Datos parciales"} · actualizado ${new Date(p.observed_until).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</p>`:`<div class="phone-empty"><p>${phone.status==="loading"?"Consultando tu cuenta…":phone.error?esc(phone.error):"Conectá Pulso para ver el uso por aplicación y tus horarios, sin cargarlo a mano."}</p><button class="btn" data-a="phoneOpen">Configurar conexión</button></div>`}</section>`;
+}
+function phoneSheet(){
+ const p=phone.days[ui.date];
+ return `<p class="section-caption">Vinculá Pulso Android con esta cuenta para consultar tus registros en todos tus dispositivos.</p>${phone.error?`<p class="phone-error" role="status">${esc(phone.error)}</p>`:""}${p?`<h3 style="margin-top:24px">${longDate(ui.date)}</h3><div class="phone-total">${phoneTime(p.payload.total)}</div><p class="phone-meta">Uso en aplicaciones · ${p.complete?"día completo":"datos parciales"}. Este valor no equivale al tiempo total de pantalla.</p>${(p.payload.apps||[]).map(a=>`<div class="phone-app"><div class="row"><span>${esc(a.name)}</span><b>${phoneTime(a.ms)}</b></div></div>`).join("")}<h3 style="margin-top:24px">Uso por hora</h3><div class="mbars" role="img" aria-label="Uso por hora">${p.payload.hours.map((n,i)=>`<i title="${i}:00 · ${phoneTime(n)}" style="height:${Math.max(3,n/Math.max(...p.payload.hours,1)*100)}%"></i>`).join("")}</div>`:""}${store.mode!=="cuenta"?'<button class="btn" data-a="login" style="margin-top:16px">Iniciar sesión con Google</button>':""}<h3 style="margin-top:24px">Dispositivos vinculados</h3>${phone.devices.length?phone.devices.map(d=>`<div class="device-row"><div><b>${esc(d.name)}</b><p class="section-caption">${d.last_sync_at?"Última conexión: "+new Date(d.last_sync_at).toLocaleString("es-AR"):"Todavía no envió datos"}</p></div><button class="btn sm danger" data-a="phoneRevoke" data-v="${esc(d.id)}">Desvincular</button></div>`).join(""):"<p class=\"section-caption\" style=\"margin:14px 0\">Todavía no vinculaste un teléfono.</p>"}${phone.token?`<label class="f">Código de vinculación</label><code class="pair-code">${esc(phone.token)}</code><p class="section-caption">Copialo en Pulso Android → Ajustes → Conectar con LifeOS. Se muestra solo en esta sesión. Da acceso para enviar tus estadísticas.</p><button class="btn" data-a="phoneCopy" style="margin-top:12px">Copiar código</button>`:`<button class="btn pri" data-a="phonePair" ${phone.status==="pairing"?"disabled":""}>${phone.status==="pairing"?"Conectando…":"Vincular mi teléfono"}</button>`}<button class="btn ghost" data-a="phoneRefresh" style="margin-left:8px">Actualizar</button><p class="connection-note">La conexión requiere la versión de Pulso Android con sincronización. Los datos de salud y tus notas se mantienen separados del envío del teléfono.</p>`;
+}
+A.dailyOpen=()=>{ui.ci=null;openSheet("Tu registro diario",dailyForm);ui.sheetFn=null};
+A.quick=A.dailyOpen;
+A.phoneOpen=()=>{openSheet("Conectar Pulso",phoneSheet);if(parent===window){phone.error="Abrí LifeOS para conectar tu cuenta con Pulso.";render()}else accountAction("pulso:phone-read")};
+A.phonePair=()=>{phone.status="pairing";phone.error="";accountAction("pulso:phone-pair");render()};
+A.phoneRefresh=()=>{phone.status="loading";phone.error="";accountAction("pulso:phone-read");render()};
+A.phoneRevoke=el=>{if(confirm("¿Desvincular este teléfono? Sus registros anteriores se conservan."))parent.postMessage({type:"pulso:phone-revoke",id:el.dataset.v},location.origin)};
+A.phoneCopy=async()=>{try{await navigator.clipboard.writeText(phone.token);toast("Código copiado")}catch{toast("Mantené presionado el código para copiarlo")}};
+document.addEventListener("submit",e=>{
+ if(e.target.id!=="daily-form")return;e.preventDefault();const form=e.target;if(!form.reportValidity())return;
+ const s=form.dataset.date,dd=ensureDay(s);dd.body=dd.body||{};dd.ci=dd.ci||{};
+ const n=id=>val(id)===""?null:Number(val(id));
+ Object.assign(dd.body,{weight:n("daily-weight"),steps:n("daily-steps"),strength:val("daily-strength")===""?null:val("daily-strength")==="yes"});
+ Object.assign(dd.ci,{sleepH:n("daily-sleep"),sleepQ:n("daily-sleepq"),energy:n("daily-energy"),mood:n("daily-mood")});
+ commit(s);closeSheet();toast("Registro guardado");render();
+});
+window.addEventListener("message",e=>{
+ if(e.origin!==location.origin||e.source!==parent||e.data?.type!=="pulso:phone-data")return;
+ if(e.data.days)phone.days=Object.fromEntries(e.data.days.map(d=>[d.day,d]));
+ if(e.data.devices)phone.devices=e.data.devices;
+ if(e.data.token)phone.token=e.data.token;
+ if(e.data.clearToken)phone.token="";
+ phone.error=e.data.error||"";phone.status="ready";if(document.getElementById("daily-form"))return;render();
+});
+
 /* ================= arranque ================= */
 function initialize(o){
  store.key=o.key||LS;store.status=o.status||"Solo en este dispositivo";store.mode=o.connected?"cuenta":"local";
  if(o.state?.S){S=migrate(o.state.S);D=o.state.D||{}}
  else if(o.legacy?.habits&&o.legacy?.metrics){const converted=PulsoMigration.convert(o.legacy,defaults);S=converted.S;D=converted.D;commitAll()}
  render();
+ if(parent!==window)accountAction("pulso:phone-read");
 }
 if(parent!==window){
  let ready=false;

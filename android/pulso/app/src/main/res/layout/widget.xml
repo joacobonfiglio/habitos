@@ -1,0 +1,6 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/widget_bg">
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="PULSO · USO EN APPS HOY" android:textColor="#D6F97B" android:textSize="12sp"/>
+<TextView android:id="@+id/widget_time" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Abrí Pulso" android:textColor="#FFFFFF" android:textSize="30sp" android:textStyle="bold"/>
+<TextView android:id="@+id/widget_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Activá el acceso de uso" android:textColor="#CFDDD8" android:textSize="12sp" android:maxLines="2"/>
+<TextView android:id="@+id/widget_refresh" android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical" android:text="↻ Actualizar" android:textColor="#D6F97B" android:textSize="14sp"/>
+</LinearLayout>
