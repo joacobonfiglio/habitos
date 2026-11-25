@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   let days;
   try{days=normalizeDays(raw);}catch(e){return json({error:e instanceof Error?e.message:"Datos inválidos."},400);}
   try{
-    const {data,error}=await phoneClient().rpc("ingest_phone_usage",{p_token:token,p_days:days});
+    const {data,error}=await phoneClient().rpc("personal_ingest_phone_usage",{p_token:token,p_days:days});
     if(error)return json({error:"No se pudo sincronizar. Revisá la conexión y el código de vinculación."},error.code==="28000"?401:503);
     return json({ok:true,result:data});
   }catch{return json({error:"La sincronización no está disponible. Tus datos siguen en el teléfono."},503);}

@@ -9,11 +9,13 @@
 - Idempotent daily ingestion: newer snapshots replace older ones; complete days cannot be downgraded to partial. Days are never added across devices. The web uses the most recently observed device record for a day.
 - Android: optional account pairing dialog, manual sync, foreground sync throttled to approximately 15 minutes, background sync in the existing approximate 6-hour archive job. Initial backfill sends the retained local history in batches of up to 31 days. Android may delay background jobs.
 
-## Activation blockers observed 2026-11-25
+## Activation status 2026-11-25
 
-1. Supabase LifeOS `gohbsqarzjdwunkcrjew` is INACTIVE. Restore was rejected because the account already has two active free projects. No other project was paused/deleted and no plan was upgraded. The owner needs to choose capacity or a plan; then restore this project and apply `supabase/migrations/0002_phone_usage.sql`. It has not been applied remotely.
-2. The supplied `Pulso-codigo-y-guia.zip` includes source but no original APK signing key. Use the original keystore to produce an in-place Android 0.3 update (`ar.pulso`, versionCode 3). A new signing key cannot update 0.2. Do not uninstall 0.2: its local-only history would be lost. `build.sh` intentionally refuses to generate a replacement key.
-3. End-to-end phone/account testing requires the restored database, migration and correctly signed update installed on the phone. These checks cannot be claimed from source checks alone.
+- The owner chose the active Traka project `svcapoxxegsubakgnvyq`. The original LifeOS remains paused. `personal_members`, `personal_snapshots`, `personal_phone_devices`, and `personal_phone_usage_daily` are separate from Traka records. Only the existing owner's account is admitted; RLS isolates records. Production/preview configuration uses the active project.
+- Authentication uses the existing Traka email/password account. Google is not enabled on that project. The production return URL is allowed without replacing Traka's existing URLs.
+- Original Pulso is still installed and its signing key is unavailable. `build-connector.sh` creates **ar.pulso.connector**, a separate app named **Pulso Conector**. It never updates or removes `ar.pulso`. Sign the connector only with its own persistent release key.
+- Connector reads the UsageStats events that Android still retains (the current reader probes eight days), then archives and synchronizes future daily summaries. It cannot read the original app's private database. Older original-app history remains there. Notification coverage begins only when its separate permission is enabled; no historical notifications are invented.
+- Phone end-to-end verification requires installing the signed connector on the user's phone, granting Usage Access, generating a web pairing code and syncing. Database isolation/token/revocation checks are verified independently.
 
 ## Android build
 
@@ -26,3 +28,7 @@ JDK 17, Android SDK platform 35 / build tools 35.0.0. Set `ANDROID_SDK_ROOT`, `P
 - `PGLITE_MODULE=/path/to/transient/@electric-sql/pglite/dist/index.js node tests/phone-database.mjs` (production migrations still need real Supabase)
 - Browser QA: desktop, 390px phone and 768px tablet; optional partial registration saved and persisted after reload.
 - Android CI: full SDK compilation plus existing SessionsTest / PeriodsTest.
+
+## Token endpoint security
+
+`personal_ingest_phone_usage` intentionally accepts an anonymous API call authenticated by an unpredictable, hashed device token; it writes only daily phone statistics belonging to that linked owner and never returns private snapshot data. `search_path` is empty and PUBLIC execution is revoked. The security advisor warning for anonymous SECURITY DEFINER execution is expected for this scoped ingestion endpoint. Other project advisories are pre-existing and are not changed here.

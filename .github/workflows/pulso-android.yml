@@ -29,3 +29,13 @@ jobs:
           javac -d build/test-classes app/src/main/java/ar/pulso/Sessions.java app/src/main/java/ar/pulso/Periods.java tests/*.java
           java -cp build/test-classes SessionsTest
           java -cp build/test-classes PeriodsTest
+      - name: Build independent Pulso Conector
+        working-directory: android/pulso
+        run: bash build-connector.sh
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pulso-conector-unsigned
+          path: android/pulso/build/connector/*
+          retention-days: 7

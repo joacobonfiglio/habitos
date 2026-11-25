@@ -1,4 +1,4 @@
-const CACHE = "espacio-shell-v4";
+const CACHE = "espacio-shell-v5";
 const SHELL = ["/", "/pulso/index.html", "/pulso/migration.js", "/pulso/hoy.css", "/pulso/spaces-model.js", "/pulso/workspace.js", "/pulso/workspace.css", "/pulso/bootstrap.js", "/pulso/time-model.js", "/pulso/time.js", "/pulso/time.css", "/favicon.svg", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
