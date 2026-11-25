@@ -4,6 +4,7 @@ function initialize(o){
  store.key=o.key||LS;store.status=o.status||"Solo en este dispositivo";store.mode=o.connected?"cuenta":"local";
  if(o.state?.S){S=migrate(o.state.S);D=o.state.D||{}}
  else if(o.legacy?.habits&&o.legacy?.metrics){const converted=PulsoMigration.convert(o.legacy,defaults);S=converted.S;D=converted.D;commitAll()}
+ if(!S){S=defaults();D={}}
  restoreFocus();
  render();
  if(parent!==window)accountAction("pulso:phone-read");
