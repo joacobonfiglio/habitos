@@ -27,5 +27,5 @@ jobs:
         run: |
           mkdir -p build/test-classes
           javac -d build/test-classes app/src/main/java/ar/pulso/Sessions.java app/src/main/java/ar/pulso/Periods.java tests/*.java
-          java -cp build/test-classes ar.pulso.SessionsTest
-          java -cp build/test-classes ar.pulso.PeriodsTest
+          java -cp build/test-classes SessionsTest
+          java -cp build/test-classes PeriodsTest
