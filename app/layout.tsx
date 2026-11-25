@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pulso",
-  description: "Tu espacio para organizar tu día, construir hábitos y descubrir patrones.",
+  title: "Mi espacio",
+  description: "Tu organización personal y profesional. Proyectos, hábitos, tiempo y bienestar.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/pulso/icon.svg",

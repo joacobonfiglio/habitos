@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pulso — registro de vida y patrones</title>
-<meta name="description" content="Registra cómo vives cada día y descubre qué comportamientos te potencian y cuáles te drenan.">
+<title>Mi espacio · Personal y profesional</title>
+<meta name="description" content="Organizá tus proyectos y tu día. Hábitos, salud, tiempo y revisión en un mismo espacio.">
 <link rel="icon" href="/pulso/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pulso/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Pulso">
+<meta name="apple-mobile-web-app-title" content="Mi espacio">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -340,6 +340,7 @@ select.in{appearance:none;-webkit-appearance:none;background-image:url("data:ima
 @keyframes sk{to{opacity:.45}}
 </style>
 <link rel="stylesheet" href="/pulso/hoy.css">
+<link rel="stylesheet" href="/pulso/workspace.css">
 </head>
 <body>
 <div class="app">
@@ -980,7 +981,7 @@ function legacyArchive(){
 function openSheet(title,fn){
   ui.sheetFn=fn;
   $("#sheet").innerHTML=`<div class="sheet-bg" data-a="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-h"><h2>${esc(title)}</h2><button class="ib" data-a="close" aria-label="Cerrar">${ICON.x}</button></div><div class="sheet-body">${fn()}</div></div></div>`;
-  const f=$("#sheet .sheet-body input,#sheet .sheet-body textarea");if(f&&f.dataset.autofocus!==undefined)f.focus();
+  const dialog=$("#sheet .sheet");dialog?.setAttribute("tabindex","-1");dialog?.focus({preventScroll:true});
 }
 function closeSheet(){ui.sheetFn=null;$("#sheet").innerHTML="";}
 function staticSheet(title,html){openSheet(title,()=>html);ui.sheetFn=null}
@@ -1400,27 +1401,9 @@ window.addEventListener("message",e=>{
  phone.error=e.data.error||"";phone.status="ready";if(document.getElementById("daily-form"))return;render();
 });
 
-/* ================= arranque ================= */
-function initialize(o){
- store.key=o.key||LS;store.status=o.status||"Solo en este dispositivo";store.mode=o.connected?"cuenta":"local";
- if(o.state?.S){S=migrate(o.state.S);D=o.state.D||{}}
- else if(o.legacy?.habits&&o.legacy?.metrics){const converted=PulsoMigration.convert(o.legacy,defaults);S=converted.S;D=converted.D;commitAll()}
- render();
- if(parent!==window)accountAction("pulso:phone-read");
-}
-if(parent!==window){
- let ready=false;
- window.addEventListener("message",e=>{
-  if(e.origin!==location.origin||e.source!==parent)return;
-  if(e.data?.type==="pulso:request-ready"){parent.postMessage({type:"pulso:ready"},location.origin)}
-  if((e.data?.type==="pulso:init"&&!ready)||e.data?.type==="pulso:replace"){ready=true;initialize(e.data)}
-  if(e.data?.type==="pulso:status"){store.status=e.data.status;store.mode=e.data.connected?"cuenta":"local";const el=document.getElementById("cloud-status");if(el)el.textContent=store.status}
- });
- parent.postMessage({type:"pulso:ready"},location.origin);
-}else{
- let state=null,legacy=null;try{state=JSON.parse(localStorage.getItem(LS)||"null");legacy=JSON.parse(localStorage.getItem("lifeos-private-v2")||"null")}catch(e){}
- initialize({state,legacy});
-}
 </script>
+<script src="/pulso/spaces-model.js"></script>
+<script src="/pulso/workspace.js"></script>
+<script src="/pulso/bootstrap.js"></script>
 </body>
 </html>
