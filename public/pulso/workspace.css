@@ -69,3 +69,6 @@ nav.tabs{position:sticky;top:0;height:100dvh;align-self:start;left:auto;right:au
 /* Primary reading stays comfortable on small screens. */
 .workspace-task .task-title,.project-table-row strong{font-size:15px}
 @media(max-width:700px){.workspace-task .task-title,.project-table-row strong{font-size:15px}.capture-options b{font-size:16px}.daily-form label{font-size:14px}.space-head p.muted,.hoy-head p{font-size:14px}.hoy-section h2{font-size:17px}}
+.example-badge{font-size:9px;letter-spacing:.06em;color:var(--warn);background:var(--warn2);border-radius:4px;padding:4px 6px;margin-left:7px;font-weight:500}
+.form-details{border-top:1px solid var(--line);margin-top:23px;padding-top:12px}.form-details>summary{font-size:13px;color:var(--ink2);padding:8px 0;cursor:pointer}
+@media(min-width:920px){nav.tabs>.brand{order:-3}nav.tabs>.fab{order:-2;margin:0 0 20px}nav.tabs>.nav-caption{order:-1}}
