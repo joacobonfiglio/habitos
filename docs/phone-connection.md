@@ -32,3 +32,7 @@ JDK 17, Android SDK platform 35 / build tools 35.0.0. Set `ANDROID_SDK_ROOT`, `P
 ## Token endpoint security
 
 `personal_ingest_phone_usage` intentionally accepts an anonymous API call authenticated by an unpredictable, hashed device token; it writes only daily phone statistics belonging to that linked owner and never returns private snapshot data. `search_path` is empty and PUBLIC execution is revoked. The security advisor warning for anonymous SECURITY DEFINER execution is expected for this scoped ingestion endpoint. Other project advisories are pre-existing and are not changed here.
+
+## Connector release 1.0
+
+Package: `ar.pulso.connector`, versionCode 1; Android 8+ (min API 26). Signed APK SHA-256: `9787d4b9f4d0adb291a83eb80d000593bc235dbb618c5985a0b3f1566dee5785`. Signing certificate SHA-256: `9a5728d8d04d7f37b7719d5c7156a73b5b36083ba0fad98f9fbcab2a2040ced8`. Installable APK is served at `/downloads/Pulso-Conector-1.0.apk`. Private signing backup is retained outside the repository; future connector updates must use the same certificate.
