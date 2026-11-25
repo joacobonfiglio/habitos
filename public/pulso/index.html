@@ -1247,7 +1247,7 @@ const CHG={
   mind(el){const s=el.dataset.d,dd=ensureDay(s);dd.mind=dd.mind||{};dd.mind[el.dataset.k]=el.value===""?null:+el.value;commit(s)},
   import(el){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);const converted=o.S&&o.D?o:PulsoMigration.convert(o,defaults);if(!confirm("Esto reemplaza tus datos de Pulso. Se conserva una copia anterior en este navegador. ¿Importar?"))return;localStorage.setItem("pulso:before-import:"+Date.now(),JSON.stringify({S,D}));S=migrate(converted.S);D=converted.D;ui.ci=null;commitAll();flush();toast("Datos importados y conservados");render()}catch(e){toast("No se pudo importar. Usá una copia JSON de Pulso o LifeOS; tus datos anteriores siguen intactos.")}};r.readAsText(f)},
 };
-document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(!el)return;const f=A[el.dataset.a];if(f){if(el.tagName==="BUTTON"||el.dataset.a==="sheetBg")e.preventDefault();f(el,e)}});
+document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(!el)return;if(el.dataset.a==="sheetBg"&&e.target!==el)return;const f=A[el.dataset.a];if(f){if(el.tagName==="BUTTON"||el.dataset.a==="sheetBg")e.preventDefault();f(el,e)}});
 document.addEventListener("input",e=>{const el=e.target;if(el.dataset&&el.dataset.i&&INP[el.dataset.i])INP[el.dataset.i](el)});
 document.addEventListener("change",e=>{const el=e.target;if(el.dataset&&el.dataset.c&&CHG[el.dataset.c])CHG[el.dataset.c](el)});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#sheet").innerHTML){closeSheet();render()}});
