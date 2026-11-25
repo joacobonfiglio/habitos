@@ -73,14 +73,14 @@ async function finishTracking(){
    try{const latest=JSON.parse(localStorage.getItem(store.key)||'null');if(latest?.S&&!!latest.S.demo===!!S.demo){S=migrate(latest.S);D=latest.D||D}}catch{}
    S.timeEntries=S.timeEntries||[];for(const row of rows){const id=current.id+':'+row.date;if(!S.timeEntries.some(e=>e.id===id))S.timeEntries.push({id,date:row.date,seconds:row.seconds,minutes:row.seconds/60,taskId:current.taskId||'',projectId:current.projectId||'',workspaceId:current.workspaceId||'personal',goalId:current.goalId||'',activity:current.title,note:'',source:'timer',createdAt:new Date().toISOString()})}
    // Save before clearing the recoverable timer. Retrying cannot add the same timer/day twice.
-   commitAll();let persisted=false;try{const saved=JSON.parse(localStorage.getItem(store.key)||'null');persisted=rows.every(r=>saved?.S?.timeEntries?.some(e=>e.id===current.id+':'+r.date))}catch{}if(!persisted)return toast('No se pudo guardar. Conservamos el cronómetro para reintentar.');storeTimer(null);ui.timer=null;closeSheet();toast('Tiempo guardado');render();
+   commitAll();let persisted=false;try{const saved=JSON.parse(localStorage.getItem(store.key)||'null');persisted=rows.every(r=>saved?.S?.timeEntries?.some(e=>e.id===current.id+':'+r.date))}catch{}if(!persisted)return toast('No se pudo guardar. Conservamos el cronómetro para reintentar.');storeTimer(null);ui.timer=null;if($('#sheet .tracker-active'))closeSheet();toast('Tiempo guardado');render();
   };
   if(navigator.locks?.request)await navigator.locks.request('mi-espacio-time:'+store.key,perform);else perform();
  }finally{stoppingTimer=false}
 }
 A.focusOpen=()=>{openSheet('Mi cronómetro',()=>timerForm());ui.sheetFn=null};
-A.trackPause=()=>{const t=readActive();if(!validTimer(t))return;ui.timer=TimeModel.pause(t);storeTimer(ui.timer);render();if($('#sheet .sheet')){openSheet('Mi cronómetro',()=>timerForm());ui.sheetFn=null}};
-A.trackResume=()=>{const t=readActive();if(!validTimer(t))return;ui.timer=TimeModel.resume(t);delete ui.timer.deadline;storeTimer(ui.timer);startTick();render();if($('#sheet .sheet')){openSheet('Mi cronómetro',()=>timerForm());ui.sheetFn=null}};
+A.trackPause=()=>{const showTimer=!!$('#sheet .tracker-active');const t=readActive();if(!validTimer(t))return;ui.timer=TimeModel.pause(t);storeTimer(ui.timer);render();if(showTimer){openSheet('Mi cronómetro',()=>timerForm());ui.sheetFn=null}};
+A.trackResume=()=>{const showTimer=!!$('#sheet .tracker-active');const t=readActive();if(!validTimer(t))return;ui.timer=TimeModel.resume(t);delete ui.timer.deadline;storeTimer(ui.timer);startTick();render();if(showTimer){openSheet('Mi cronómetro',()=>timerForm());ui.sheetFn=null}};
 A.trackCorrect=()=>{const t=readActive();if(!validTimer(t))return;ui.timer=TimeModel.pause(t);storeTimer(ui.timer);openSheet('Corregir duración',()=>manualTimeForm(null,{...ui.timer,seconds:Math.floor(TimeModel.elapsed(ui.timer)/1000),activity:ui.timer.title,timerId:ui.timer.id}));ui.sheetFn=null};
 A.trackStop=()=>void finishTracking();A.timerStop=A.trackStop;
 A.trackDiscard=()=>{if(confirm('¿Descartar este cronómetro sin guardarlo?')){storeTimer(null);ui.timer=null;closeSheet();render()}};
