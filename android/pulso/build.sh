@@ -2,7 +2,8 @@
 # Requirements: JDK 17; Android SDK platform 35 and build-tools 35.0.0.
 set -euo pipefail
 cd "$(dirname "$0")"
-: "${ANDROID_SDK_ROOT:?Set ANDROID_SDK_ROOT to the Android SDK path}"
+ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+: "${ANDROID_SDK_ROOT:?Set ANDROID_SDK_ROOT or ANDROID_HOME to the Android SDK path}"
 BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
 JAR="$ANDROID_SDK_ROOT/platforms/android-35/android.jar"
 if [[ ! -f "$JAR" ]]; then JAR="$ANDROID_SDK_ROOT/platforms/android-35/android-35/android.jar"; fi

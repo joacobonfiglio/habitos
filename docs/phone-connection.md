@@ -23,5 +23,6 @@ JDK 17, Android SDK platform 35 / build tools 35.0.0. Set `ANDROID_SDK_ROOT`, `P
 
 - `npm run build`
 - `node --experimental-strip-types --test tests/phone-usage.test.ts`
-- `node tests/phone-database.mjs` (uses the transient PGlite installation path described in that test; production migrations need real Supabase)
+- `PGLITE_MODULE=/path/to/transient/@electric-sql/pglite/dist/index.js node tests/phone-database.mjs` (production migrations still need real Supabase)
+- Browser QA: desktop, 390px phone and 768px tablet; optional partial registration saved and persisted after reload.
 - Android CI: full SDK compilation plus existing SessionsTest / PeriodsTest.

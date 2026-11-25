@@ -413,7 +413,7 @@ const ui={tab:"hoy",date:TODAY(),sub:{planificar:"tareas",crecer:"habitos",patro
   ci:null,editCi:false,sheetFn:null,timer:null,areaHm:"",revType:"semanal"};
 const getDay=s=>D[s]||{};
 const ensureDay=s=>(D[s]=D[s]||{});
-const logged=dd=>!!(dd&&(dd.ci||dd.close||(dd.tags&&dd.tags.length)||(dd.habits&&Object.keys(dd.habits).length)));
+const logged=dd=>!!(dd&&((dd.ci&&Object.values(dd.ci).some(v=>v!=null))||(dd.body&&Object.values(dd.body).some(v=>v!=null))||dd.close||(dd.tags&&dd.tags.length)||(dd.habits&&Object.keys(dd.habits).length)));
 const mod=k=>S.modules[k]!==false;
 const areaName=id=>S.areas.find(a=>a.id===id)?.name||"";
 
@@ -1387,6 +1387,8 @@ document.addEventListener("submit",e=>{
  const n=id=>val(id)===""?null:Number(val(id));
  Object.assign(dd.body,{weight:n("daily-weight"),steps:n("daily-steps"),strength:val("daily-strength")===""?null:val("daily-strength")==="yes"});
  Object.assign(dd.ci,{sleepH:n("daily-sleep"),sleepQ:n("daily-sleepq"),energy:n("daily-energy"),mood:n("daily-mood")});
+ if(Object.values(dd.ci).every(v=>v==null))delete dd.ci;
+ if(Object.values(dd.body).every(v=>v==null))delete dd.body;
  commit(s);closeSheet();toast("Registro guardado");render();
 });
 window.addEventListener("message",e=>{
